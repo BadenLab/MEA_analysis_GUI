@@ -1,0 +1,1 @@
+stimulus_arr = load_noise_from_hdf5(string(noise_file),true,1,5000);

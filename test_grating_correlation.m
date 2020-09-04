@@ -1,0 +1,538 @@
+function out = gratings_qc (savepath, add_info)
+
+
+%% Load Data
+stim_idx = add_info.stim_idx;
+try
+    S = load(findfile_app(stim_idx,savepath,'dir'));
+    dir = S.dir;
+catch
+    error('Gratings analysis file could not be found, analyse gratings first');
+end
+
+
+
+nr_cells = size(dir(1).spike_nr_repeats(1,:,1),2);
+plot_data = false;
+tolerance = 0.25;
+
+%%
+%Preallocate
+cell_spikes = squeeze(dir(1).spike_nr_repeats(:,1,:));
+cell_spikes(cell_spikes == 0) = NaN;
+nr_repeats = size(cell_spikes,2);
+
+max_P1 = zeros(nr_cells,nr_repeats,size(dir,2));
+Q_frequency = zeros(nr_cells,size(dir,2));
+Q1 = zeros(nr_cells,size(dir,2));
+Q_total = zeros(nr_cells,size(dir,2));
+
+%% Loop
+for cc = 1:nr_cells
+for dd = 1:size(dir,2)
+
+cell_spikes = squeeze(dir(dd).spike_nr_repeats(:,cc,:));
+cell_spikes(cell_spikes == 0) = NaN;
+
+close all
+
+
+%% Bin Data
+%Transform data to a series of 0 and 1 at a given bin size
+binsize = 0.001;
+maxspikes = nanmax(cell_spikes,[],'all');
+if isnan(maxspikes)
+    continue
+end
+nr_bins = ceil(maxspikes/binsize);
+
+max_bin_time = binsize*nr_bins; %Last edge of the histcount
+
+edges = (binsize:binsize:max_bin_time);
+
+cell_histcount = zeros(nr_bins-1,size(cell_spikes,2));
+% cell_gaussian = zeros(nr_bins-1,size(cell_spikes,2));
+% figure
+% hold on
+for ii = 1:nr_repeats
+    
+    cell_histcount(:,ii) = histcounts(cell_spikes(:,ii),edges);
+
+end
+
+
+
+%% convolve with gaussian kernel
+%each spike falls into a certain time-probability window determined by a
+%gaussian kernel
+
+w = gausswin(100);
+spikes_smoothed = zeros(size(edges,2)-1,nr_repeats);
+for ii = 1:nr_repeats
+    
+    spikes_smoothed(:,ii) = conv(cell_histcount(:,ii),w,'same');
+   
+end
+
+%% Plot overview
+if plot_data
+    ax(1) = subplot(nr_repeats+1,1,1);
+    plot_raster(cell_spikes,1);
+
+for ii = 1:size(cell_spikes,2)
+   ax(ii+1) = subplot(nr_repeats+1,1,ii+1);
+   plot_data
+   plot(edges(1:end-1),spikes_smoothed(:,ii),'k');
+   
+end
+linkaxes(ax,'x')
+end
+
+
+%% Calculate average trace
+% point wise multiplication
+spikes_smoothed1 = spikes_smoothed+1;
+trace_average = [];
+trace_average(:,1) = spikes_smoothed1(:,1);
+for ii =1:size(spikes_smoothed1,2)-1
+    trace_average = trace_average(:).*spikes_smoothed1(:,ii+1);
+end
+trace_average = trace_average-1;
+%Normalize average trace
+%trace_average = trace_average/max(trace_average);
+if plot_data
+    figure
+    bx(1) = subplot(2,1,1);
+    plot_raster(cell_spikes,1);
+
+    bx(2) = subplot(2,1,2);
+    plot(edges(1:end-1),trace_average,'k')
+    linkaxes(bx,'x')
+end
+
+%% Compare to classical bin approach
+
+binsize_test = 0.05;
+maxspikes = max(cell_spikes,[],'all'); 
+nr_bins = ceil(maxspikes/binsize_test);
+
+max_bin_time = binsize_test*nr_bins; %Last edge of the histcount
+
+edges_test = (binsize_test:binsize_test:max_bin_time);
+
+cell_histcount_test = zeros(nr_bins-1,size(spikes_smoothed,2));
+% cell_gaussian = zeros(nr_bins-1,size(cell_spikes,2));
+% figure
+% hold on
+for ii = 1:nr_repeats
+    try
+    cell_histcount_test(:,ii) = histcounts(cell_spikes(:,ii),edges_test);
+    catch
+        continue
+    end
+end
+
+cell_test_smooth = smoothdata(cell_histcount_test,1,'gaussian',5);
+cell_test_smooth_avr = mean(cell_test_smooth,2);
+if plot_data
+figure
+tx(1) = subplot(nr_repeats+1,1,1);
+plot_raster(cell_spikes,1);
+for ii = 1:nr_repeats
+    tx(ii+1) = subplot(nr_repeats+1,1,ii+1);
+    plot(edges_test(1:end-1),cell_test_smooth(:,ii),'k');
+       
+end
+linkaxes(tx,'x')
+
+figure
+t1x(1) = subplot(2,1,1);
+plot_raster(cell_spikes,1);
+t1x(2) = subplot(2,1,2);
+plot(edges_test(1:end-1),cell_test_smooth_avr,'k');
+linkaxes(t1x,'x')
+end
+
+
+%% Compare the power spectra of individial traces
+if plot_data
+    figure
+end
+
+for ii = 1:nr_repeats
+Fs = 1/binsize;
+try
+[P1(:,ii),f1(:,ii)] = periodogram(spikes_smoothed(:,ii),[],[],Fs,'power');
+catch
+    P1(:,ii) = zeros;
+    f1(:,ii) = zeros;
+    max_P1(cc,ii,dd) = 0;
+    continue
+end
+f_max = find((f1(:,ii) > 15),1,'first')-1;
+f_min = find((f1(:,ii) > 0.5),1,'first')-1;
+P1_cut(:,ii) = P1(f_min:f_max,ii);
+f1_cut(:,ii) = f1(f_min:f_max,ii);
+[~,max_P1(cc,ii,dd)] = max(P1_cut(:,ii));
+% [~,max_P1(2,ii)] = second_max(P1_cut(:,ii));
+if plot_data
+    
+    sx(ii) = subplot(nr_repeats,1,ii);
+    plot(f1_cut(:,ii),P1_cut(:,ii),'k')
+    grid
+    ylabel('P_1')
+    title('Power Spectrum')
+    linkaxes(sx,'x')
+end
+% sx(2) = subplot(nr_repeats,1,i);
+% plot(f2,P2,'r')
+% grid
+% ylabel('P_2')
+% xlabel('Frequency (Hz)')
+
+
+end
+
+frequency_step = mean(diff(f1_cut),'all');
+tolerance_idx = round(tolerance/frequency_step);
+
+
+
+
+
+%% Compare power spectrum of mean trace
+% Compare the power spectra of these mean traces
+try
+Fs = 1/binsize;
+Fs_test = 1/binsize_test;
+%[P1,f1] = periodogram(trace_average(:,1),[],[],Fs,'power');
+[P2,f2] = periodogram(cell_test_smooth_avr(:,1),[],[],Fs_test,'power');
+
+P2_cut(:,1) = P2(f_min:f_max,1);
+f2_cut(:,1) = f2(f_min:f_max,1);
+[peaks,locs] = findpeaks(P2_cut);
+[max_P2, max_idx] = max(peaks);
+max_P22 = second_max(peaks);
+
+peak_ratio = max_P2/max_P22;
+Q_frequency(cc,dd) = f2_cut(locs(max_idx));
+
+catch
+    Q_frequency(cc,dd) = NaN;
+    peak_ratio = 0;
+end
+
+
+
+
+% sx(1) = subplot(2,1,1);
+% plot(f1,P1,'k')
+% grid
+% ylabel('P_1')
+% title('Power Spectrum')
+% 
+% sx(2) = subplot(2,1,2);
+% plot(f2,P2,'r')
+% grid
+% ylabel('P_2')
+% xlabel('Frequency (Hz)')
+% 
+% linkaxes(sx,'x')
+
+%% Calculate quality matrix
+
+unique_peaks = unique(max_P1(cc,:,dd));
+count_similar = zeros(1,numel(unique_peaks));
+%Count how many peaks are observed at the same frequency
+for ii = 1:numel(unique_peaks)
+    if unique_peaks(ii) < 2*tolerance_idx
+        count_similar(ii) = 0;
+        continue
+    else
+    count_similar(ii) = nnz((max_P1(cc,:,dd) > unique_peaks(ii)-tolerance_idx)...
+        .*(max_P1(cc,:,dd) < unique_peaks(ii)+tolerance_idx));
+    end
+end
+Q1(cc,dd) = max(count_similar./8);
+Q_total(cc,dd) = Q1(cc,dd) * peak_ratio;
+
+
+end
+end
+
+
+%% Calculate the final QC
+
+[QC, QCI] = max(Q_total,[],2);
+QC_frequency = zeros(nr_cells,1);
+for ii = 1:nr_cells
+    QC_frequency(ii,1) = Q_frequency(ii,QCI(ii));
+end
+
+
+%% Create output file
+for ii = 1:nr_cells
+    Grating_QC(ii).Q1 = Q1(ii,:);
+    Grating_QC(ii).QC = QC(ii,1);
+    Grating_QC(ii).Q_total = Q_total(ii,:);
+    Grating_QC(ii).QC_frequency = QC_frequency(ii,1);
+    Grating_QC(ii).cell_idx = cell_indices(ii);
+        
+end
+
+
+[~] = sf_organizer(stim_idx,savepath,'variable',Grating_QC);
+
+
+%% Plot the histogram of QI
+figure
+bar(cell_indices,Q_total,'k')
+title('Quality index over cells')
+xlabel('cell_id')
+
+figure
+histogram(QC)
+title('QC histogram for all cells');
+
+figure
+histogram(QC_frequency)
+title('Frequency histogram')
+xlabel('Frequency')
+
+
+out = 1;
+
+
+
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%% Experimental stuff
+
+% %% Test for cross correlation
+% figure
+% [c,lags] = xcorr(spikes_smoothed,'coeff');
+% stem(lags,c,'color','k')
+% 
+% lag_window = 1; %In seconds
+% lag_window_bins = lag_window/binsize;
+% 
+% %find 0 time lag
+% 
+% lag_0 = find(lags == 0);
+% lag_cut(1) = lag_0-0.5*lag_window_bins+1;
+% lag_cut(2) = lag_0+0.5*lag_window_bins;
+% 
+% c_new = c(lag_cut(1):lag_cut(2),:);
+% 
+% 
+% %Find the autocorrelation indices
+% auto_ones = true(size(c,2),1);
+% auto_idx = (1:nr_repeats:size(c,2));
+% add_idx = (0:1:7);
+% auto_idx = auto_idx + add_idx;
+% auto_ones(auto_idx) = false;
+% 
+% 
+% 
+% c_new_cross = c_new(:,auto_ones);
+% figure
+% stem(lags(lag_cut(1):lag_cut(2)),c_new_cross,'color','k')
+% c_new_max = max(c_new_cross,[],1);
+% figure
+% boxplot(c_new_max);
+% mean(c_new_max)
+% 
+% 
+% 
+% %%
+% binsize = 0.001;
+% maxspikes = max(cell_spikes,[],'all');
+% nr_bins = ceil(maxspikes/binsize);
+% 
+% max_bin_time = binsize*nr_bins;
+% 
+% edges = (binsize:binsize:max_bin_time);
+% 
+% w = gausswin(50);
+% 
+% cell_histcount = zeros(nr_bins-1,size(spikes_smoothed,2));
+% % cell_gaussian = zeros(nr_bins-1,size(cell_spikes,2));
+% % figure
+% % hold on
+% for ii = 1:size(cell_spikes,2)
+%     
+%     cell_histcount(:,ii) = histcounts(cell_spikes(:,ii),edges);
+% %     cell_gaussian(:,ii) = conv(cell_histcount(:,ii),w,'same');
+%     plot(edges(2:end),cell_histcount(:,ii)+10*ii,'k')
+% 
+% end
+% 
+% 
+% 
+% % point wise multiplication
+% trace_average(:,1) = spikes_smoothed(:,1);
+% for ii =1:size(spikes_smoothed,2)-1
+%     trace_average = trace_average(:).*spikes_smoothed(:,ii+1);
+%     
+% end
+% 
+% 
+% 
+% 
+% combinations = combnk(1:size(cell_spikes,2),2);
+% schreiber_test_result = zeros(length(combinations),1);
+% 
+% for ii = 1:length(combinations)
+%     c1 = combinations(ii,1);
+%     c2 = combinations(ii,2);
+%     test_inner = dot(spikes_smoothed(:,c1),spikes_smoothed(:,c2));
+% 
+%     test_norm = norm(spikes_smoothed(:,c1));
+%     test_norm2 = norm(spikes_smoothed(:,c2));
+% 
+% 
+%     schreiber_test_result(ii) = test_inner / (test_norm*test_norm2);
+% end
+% figure
+% boxplot(schreiber_test_result);
+% 
+% 
+% 
+% Fs = 1/binsize;
+% T = binsize;
+% L = length(cell_gaussian);
+% t = (0:L-1)*T; 
+% 
+% Y = fft(cell_gaussian,[],1);
+% fft_counts = zeros(floor(L/2+1),size(cell_spikes,2));
+% fft_counts_var = zeros(1,size(cell_spikes,2));
+% figure
+% for ii = 1:size(cell_spikes,2)
+%     P2 = abs(Y(:,ii)/L);
+%     P1 = P2(ceil(1:L/2+1));
+%     P1(2:end-1) = 2*P1(2:end-1);
+%     fft_counts(:,ii) = P1;
+%     fft_counts_var(ii) = var(fft_counts(1:95,ii));
+% 
+% 
+%     f = Fs*(0:(L/2))/L;
+%     
+%     ax(ii) = subplot(size(cell_spikes,2),1,ii);
+%     plot(f,P1) 
+% end
+% linkaxes(ax,'x');
+% xlim([0,20])
+% 
+% 
+% 
+% fft_mean = mean(fft_counts(1:95,:),2);
+% 
+% fft_var_mean = var(fft_mean);
+% fft_mean_var = mean(fft_counts_var);
+% 
+% QI = fft_var_mean/fft_mean_var;
+% 
+% test_weight = test_mean.*test_std;
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% %Experimental stuff
+% 
+% 
+% [P1,f1] = periodogram(trace_average(:,1),[],[],Fs,'power');
+% [P2,f2] = periodogram(cell_gaussian(:,3),[],[],Fs,'power');
+% 
+% ax(1) = subplot(2,1,1)
+% plot(f1,P1,'k')
+% grid
+% ylabel('P_1')
+% title('Power Spectrum')
+% 
+% ax(2) = subplot(2,1,2)
+% plot(f2,P2,'r')
+% grid
+% ylabel('P_2')
+% xlabel('Frequency (Hz)')
+% 
+% linkaxes(ax,'x');
+% 
+% [pk1,lc1] = findpeaks(P1,'SortStr','descend');
+% P1peakFreqs = f1(lc1)
+% 
+% hold on
+% 
+% [pk2,lc2] = findpeaks(P2,'SortStr','descend');
+% P2peakFreqs = f2(lc2)
+% 
+% 
+% [Cxy,f] = mscohere(cell_gaussian(:,2),cell_gaussian(:,3),[],[],[],Fs);
+% 
+% 
+% thresh = 0.75;
+% [pks,locs] = findpeaks(Cxy,'MinPeakHeight',thresh);
+% MatchingFreqs = f(locs)
+% 
+% 
+% figure
+% plot(f,Cxy)
+% ax = gca;
+% grid
+% xlabel('Frequency (Hz)')
+% title('Coherence Estimate')
+% ax.XTick = MatchingFreqs;
+% ax.YTick = thresh;
+% axis([0 200 0 1])
+% 
+% 
+% %More stuff
+% 
+% 
+% level = 7;
+% wpt = wpdec(cell_gaussian(:,2),level,'coif2');
+% 
+% figure;
+% [S,T,F] = wpspectrum(wpt,Fs,'plot');
+%     
+% spectrogram(cell_histcount(:,2),100,90,10,'yaxis');
+% wt = cwt(cell_histcount(:,2),Fs);
+% 
+% figure
+% 
+% ax(1) = subplot(2,1,1);
+% hold on
+% plot(edges(2:end),cell_histcount(:,2)+10*ii,'k')
+% ax(2) = subplot(2,1,2);
+% 
+% plot(edges(2:end),cell_gaussian(:,2)+10*ii,'k')
+% linkaxes(ax,'x');
+% 
+
+
+
+
+
+
+
+
