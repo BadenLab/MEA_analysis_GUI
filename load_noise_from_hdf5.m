@@ -79,7 +79,7 @@ end
 %Load the data
 
 hdf5_start = p.Results.start_loc;
-hdf5_count = [nr_frames nr_boxes];
+hdf5_count = ceil([nr_frames nr_boxes]);
 
 Colour_noise_temp = zeros([uint16(hdf5_count),4]);
 

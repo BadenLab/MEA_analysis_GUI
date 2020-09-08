@@ -1,13 +1,14 @@
 %% RF Indentification Command Line 4 - GUI Ready
 % 04,06,2020 Onwards
 % Works with RF_Ident_fn_v4.m
+function out = RF_Ident_CL_4_GUI_Ready (savepath, add_info)
+%% Get inputs
+kernel_settings = add_info.settings.kernel_new;
 
-clear all;
-clc;
 
 %% Choose whether to use parallel processing and number of cores
-Parpool   = 2; % 1: Yes, 2: No.
-Num_Cores = 6;
+Parpool = add_info.settings.parpro;
+Num_Cores = 4;
 
 %% Make RF Identification Choices
 
@@ -18,7 +19,7 @@ Num_Cores = 6;
 % b: LC method (Local Covariance);
 % c: MI method (Mutual Information).
 % d: SC method (Self Covariance).
-p.RF_Ident_Meth_vec = [1,0,0,1];
+p.RF_Ident_Meth_vec = [kernel_settings.SS,0,0,kernel_settings.CI];
 
 % Choose whether to calculate STE_Full for use with LC/MI/SC % PAR Mod 27,08,2020
 % 1: Yes,
@@ -35,15 +36,15 @@ if p.RF_Ident_Meth_vec(1) == 1
     
     if p.STA_SD_QC_Type == 1
         % Choose SD Threshold
-        p.STA_SD_Thresh = 5; % MEA Data 1 (50px) -- 5 seems good. 
+        p.STA_SD_Thresh = kernel_settings.SS_Std; % MEA Data 1 (50px) -- 5 seems good. 
     elseif p.STA_SD_QC_Type == 2
         % Choose Upper Percentile
-        p.STA_SD_CI_Per = 1; % default: 1 (%)
+        p.STA_SD_CI_Per = kernel_settings.QC_CI_Upper; % default: 1 (%)
     end
          
 end
 
-if p.RF_Ident_Meth_vec(2)==1
+if p.RF_Ident_Meth_vec(2)==1 %Remeains to be implemented @mars
     
     % Choose LC QC type
     % 1. SD threshold;
@@ -60,7 +61,7 @@ if p.RF_Ident_Meth_vec(2)==1
     
 end
 
-if p.RF_Ident_Meth_vec(3)==1
+if p.RF_Ident_Meth_vec(3)==1 %Remains to be implemented @mars
     
     % Choose MI QC type
     % 1. SD threshold;
@@ -86,10 +87,10 @@ if p.RF_Ident_Meth_vec(4) == 1
     
     if p.SC_QC_Type == 1
         % Choose SD Threshold
-        p.SC_Thresh = 7; % MEA Data 1 (50px): 7 seems good.
+        p.SC_Thresh = kernel_settings.QC_Std;  % MEA Data 1 (50px): 7 seems good.
     elseif p.SC_QC_Type == 2
         % Choose Upper Percentile
-        p.SC_CI_Per = 1; % default: 1 (%)
+        p.SC_CI_Per = kernel_settings.QC_CI_Upper; % default: 1 (%)
     end
          
 end
@@ -99,19 +100,19 @@ end
 % a. Box;
 % b. All Significant Pixels;
 % c. Gaussian.
-p.RF_Type = [1,1,1];
+p.RF_Type = [kernel_settings.RF_Box,kernel_settings.RF_AS,kernel_settings.RF_Gaus];
 
 % Choose RF Parameters
 if p.RF_Type(1) == 1   % Box
     % Choose number of rings of pixels around central RF pixel
-    p.RF_layers = 1;
+    p.RF_layers = kernel_settings.RF_RBoxes;
     % Choose number of rings of pixels around significant Full RF pixels
-    p.FullRF_layers = 1;
+    p.FullRF_layers = 1; %mars: What does this mean?
 end
 
 if p.RF_Type(3) == 1   % Gaussian
     % Choose number of standard deviations at which to set RF contour
-    p.RF_SDs = 2; % 2 default
+    p.RF_SDs = kernel_settings.RF_SDGaus; % 2 default
 end
 
 %% Post RF Calc Options
@@ -119,7 +120,7 @@ end
 % Choose whether to plot RF indentification results
 % 1. Yes;
 % 2. No.
-p.Plot_Choice = 1;
+p.Plot_Choice = kernel_settings.plot_RF_overview;
 
 %% Make Data Related Choices
 
@@ -165,7 +166,7 @@ end
 % 1. Calc from stim frames;
 % 2. Calc from own time grid.
 if p.Time_Choice == 2 && p.RF_Ident_Meth_vec(2) == 1 && LocCovar_Choice == 2
-    RawLocCovar_Choice  = 1;
+    RawLocCovar_Choice  = 1; %@mars This is unused?
 end
 
 % Choose length of time window in which to find the STEs
@@ -175,91 +176,211 @@ end
 
 % Choose stimulus resolution (number of points sampled from stimulus time
 % window)
-p.Num_STE_bins = 10; % Default: 5 (Tom data, Time_Choice 1) or 10 (Tom data,Time_Choice 2); 20 (Marvin data)
+p.Num_STE_bins = kernel_settings.Num_STE_bins; % Default: 5 (Tom data, Time_Choice 1) or 10 (Tom data,Time_Choice 2); 20 (Marvin data)
 
 
 %% Load Data
+%mars: I added a new way to load data. It depends on which stimulus the
+%user selects in the GUI. The spiketimestamps get loaded in batches, to
+%prevent the memory from overfloating. It calls functions which come with
+%the GUI and are used in other scripts of the GUI as well. 
 
-%load Marvin_Data_Chicken_24_08_2019_PARMod.mat;
-%load Marvin_Data_Chicken_06_12_2019_PARMod.mat;
 
-%load Colour_noise50px_data_PARMod.mat;
-%load Colour_noise50px_data_PARMod2.mat;
+%% Memory handling  @mars
+%Check how many spiketimestamps are in recording
+M = matfile(savepath,'Writable',false); %Using matfile here so we dont have 
+%to load the actual file
+spikesize = numel(M.spiketimestamps);
+stx_before = size(M.spiketimestamps,2);
 
-load Colour_noise50px_data.mat;
-%load 30pxNoise_subset.mat; % There is something wrong with this data set, it gives no RF.
-%load 20pxNoise_subset.mat;
+%Check how much memory is available
+%One double entry is 8 bytes, we dont want to use more than one fourth of the
+%available memory (So that returned data has place as well)
+memory_available = memory;
+memory_available = memory_available.MaxPossibleArrayBytes/4;
+array_size_available = memory_available/8;
 
-if Cell_Choice == 1 % All cells
-    spike_times_mat    = spiketimestamps;
-    Cell_Choice_vec    = 1:1:size(spiketimestamps,2);
-    True_cell_index_vec = Cell_Choice_vec(any(~isnan(spike_times_mat)));
-else % Cell_Choice == 2 % Subset of cells
-    spike_times_mat    = spiketimestamps(:,Cell_Choice_vec);
-    % Remove NaN columns (non-responsive cells)
-    True_cell_index_vec = Cell_Choice_vec(any(~isnan(spike_times_mat))); % Record indices of remaining cells
-end
+%Calculate how many batches we need to process all the data. If only one
+%batch is need, all data will be processed as one set.
 
-spike_times_mat(:,~any(~isnan(spike_times_mat))) = [];
-True_Num_Cells     = size(spike_times_mat,2);
+%Calculate batch size
+batch_nr = ceil(spikesize/array_size_available);
+batch_stx = ceil(stx_before/batch_nr);
+batch_begins = (1:batch_stx:stx_before);
+batch_ends = batch_begins(2:end)-1;
+batch_ends(end+1) = stx_before;
 
-trigCh_vec         = Ch_new.trigger_ch;
+
+%% Specifiy trigger channel @mars
+%This has to be done only once for all batches, as they are from the same
+%stimulus normally. I had to swap some of the variable declarations around
+%to make them fit to the new loop structure. Trigger channel stuff is
+%outside the loop, spiketimestamp stuff inside the loop (of batches).
+
+%mars: Load stim time details
+stim_idx = add_info.stim_idx;
+stim_begin = add_info.stim_begin;
+stim_end = add_info.stim_end;
+ch = load(savepath,'-mat','Ch');
+ch = ch.Ch;
+Ch01_02 = ch.Ch01_02;
+SamplingFrequency = ch.SamplingFrequency;
+stimulus_nr = numel(stim_begin); %Nr of selected noise stimuli
+
+for nn = 1:stimulus_nr %Loop over selected stimuli
+
+%% Load Data modified by @mars
+%% Trigger channel for each stimulus    
+noise_begin = stim_begin(nn)*SamplingFrequency;
+noise_end = stim_end(nn)*SamplingFrequency;
+
+%@mars: Cell selection, not sure this should stay in the code
+% if Cell_Choice == 1 % All cells
+%     spike_times_mat    = spiketimestamps;
+%     Cell_Choice_vec    = 1:1:size(spiketimestamps,2);
+%     True_cell_index_vec = Cell_Choice_vec(any(~isnan(spike_times_mat)));
+% else % Cell_Choice == 2 % Subset of cells
+%     spike_times_mat    = spiketimestamps(:,Cell_Choice_vec);
+%     % Remove NaN columns (non-responsive cells)
+%     True_cell_index_vec = Cell_Choice_vec(any(~isnan(spike_times_mat))); % Record indices of remaining cells
+% end
+
+trigCh_vec(1,:) = Ch01_02(noise_begin:noise_end); %This cuts the
+%trigger trace at stimulus begin and end
+
 min_trigCh_vec     = min(trigCh_vec);
 max_trigCh_vec     = max(trigCh_vec);
 trigThreshFac      = 0.05; % 0.1
 trigHigh_vec       = double(trigCh_vec > min_trigCh_vec + trigThreshFac*(max_trigCh_vec-min_trigCh_vec));
-[~,trig_index_vec] = findpeaks(trigHigh_vec); % 'MinPeakProminence',#,'MinPeakDistance',#
-
-sampling_freq      = Ch_new.SamplingFrequency;
+[~,trig_index_vec_temp] = findpeaks(trigHigh_vec);% 'MinPeakProminence',#,'MinPeakDistance',#
+trig_index_vec = zeros(1,size(trig_index_vec_temp,2)+2);
+trig_index_vec(1,1) = 1;
+trig_index_vec(1,2:end-1) = trig_index_vec_temp;
+trig_index_vec(1,end) = size(trigHigh_vec,2);
+sampling_freq      = SamplingFrequency;
 sampling_int       = 1/sampling_freq;
 
 trig_times_vec_temp = (trig_index_vec-1)*sampling_int;
 % I take it that the rising edge starts at the timepoint directly
 % before the jump upwards - hence '(trig_index_vec-1)' rather than 'trig_index_vec'
 trig_times_vec      = trig_times_vec_temp - trig_times_vec_temp(1); % set first frame time to 0 s.
+%@mars: this somehow didnt work correctly, the first trigger is at time
+%0, so it must be (1) in trig_times_vec.
 
-clear spiketimestamps Ch_new; % Remove original data files as no longer needed.
+%% Check for frozen repeats @mars
+%@mars: We need to find out how often the stimulus sequence was repeated. 
+trig_times_diff = ceil05(diff(trig_times_vec),0.05); %@mars: find beginning and
+%end of noise repeats
+noise_begins = trig_times_diff > 5*mean(trig_times_diff);
+nr_frozen = nnz(noise_begins)+1;%@mars: +1 because diff finds the difference
 
-% Check that triggers are correctly identified.
-% figure; plot(trigCh_vec); hold on;
-% plot(trig_index_vec,4085*ones(1,length(trig_index_vec)),'ro');
+if nr_frozen > 1
+trig_per_frozen = int64(numel(trig_times_vec)/nr_frozen);
 
-stimulus_arr(:,:,1) = importdata('Red_Noise.txt',',')';
-stimulus_arr(:,:,2) = importdata('Green_Noise.txt',',')';
-stimulus_arr(:,:,3) = importdata('Blue_Noise.txt',',')';
-stimulus_arr(:,:,4) = importdata('UV_Noise.txt',',')';
+if ~isreal(trig_per_frozen)
+    error(['Unable to identify number of noise repeats in frozen noise, check'...
+        ' stimulus begin and stimulus end']);
+    
+end
+else %If effectively no frozen noise is played but only on sequence
+    trig_per_frozen = length(trig_times_vec);
+    warning('No noise repeats detected, assuming only 1 noise sequence and no frozen repeats');
+end
+    
+%@mars: Now we can load the sequence according to what was played
+
+
+%% Noise sequence for each stimulus @mars
+%Noise sequence is either loaded from HDF5 file or text file
+noise_file = add_info.settings.location.noise;
+%Check for file ending 
+file_ending = get_fileformat(noise_file);
+
+if strcmp(file_ending,'h5')
+stimulus_arr = load_noise_from_hdf5(string(noise_file),true,1,trig_per_frozen);
+nr_boxes = int64(sqrt(size(stimulus_arr,2)));
+nr_colours = int64(size(stimulus_arr,3));
+stimulus_arr = reshape(stimulus_arr,[nr_boxes,nr_boxes,trig_per_frozen,nr_colours]);
+
+elseif strcmp(file_ending,'txt') %Old version of getting the sequence
+%Get folder location
+folder_ending = max(strfind(noise_file,'\'));
+folder_dir = noise_file(1:folder_ending);
+
+stimulus_arr(:,:,1) = importdata([folder_dir,'Red_Noise.txt'],',')';
+stimulus_arr(:,:,2) = importdata([folder_dir,'Green_Noise.txt'],',')';
+stimulus_arr(:,:,3) = importdata([folder_dir,'Blue_Noise.txt'],',')';
+stimulus_arr(:,:,4) = importdata([folder_dir,'UV_Noise.txt'],',')';
 stimulus_arr(:,1,:) = []; % stimulus_arr(1,:,:) before transposed above
 stimulus_arr        = reshape(stimulus_arr,[40,40,6000,4]);
+nr_colours = 4;
+end
 
-p.Spectral_Dim = size(stimulus_arr,4);
+p.Spectral_Dim = nr_colours;
 
-% if size(stimulus_arr,3) ~= length(trig_times_vec)
-%     disp('NB: There is a mismatch between the number of stimulus frames and the number of triggers!');
-% end
-
-p.stim_frames = size(stimulus_arr,3);   % PAR Mod 27,08,2020 (moved from below, was stim_frames)
-p.Num_trigs   = length(trig_times_vec); % PAR Mod 27,08,2020
-
-if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement)
-    
-    Num_FNoise_rep      = p.Num_trigs/p.stim_frames;
-    p.Num_FNoise_rep_ceil = ceil(Num_FNoise_rep);
-    max_trig_int        = max(diff(trig_times_vec(1:p.stim_frames)));
-    inter_noise_int_vec = NaN(p.Num_FNoise_rep_ceil-1,1);
-    for i = 1:p.Num_FNoise_rep_ceil-1
-        inter_noise_int_vec(i) = trig_times_vec(i*p.stim_frames+1)-trig_times_vec(i*p.stim_frames);
-    end
-    
+if size(stimulus_arr,3) ~= nr_noise_frames %mars This will not work if we 
+    %only load a subset of frames depending on how many trigger signals we
+    %find in the trigger channel (kinda circular in that case)
+    disp('NB: There is a mismatch between the number of stimulus frames and the number of triggers!');
 end
 
 
+
+%% Old stimulus loading
+% % Check that triggers are correctly identified.
+% %figure; plot(trigCh_vec); hold on;
+% %plot(trig_index_vec,4085*ones(1,length(trig_index_vec)),'ro');
+% 
+% stimulus_arr(:,:,1) = importdata('Red_Noise.txt',',')';
+% stimulus_arr(:,:,2) = importdata('Green_Noise.txt',',')';
+% stimulus_arr(:,:,3) = importdata('Blue_Noise.txt',',')';
+% stimulus_arr(:,:,4) = importdata('UV_Noise.txt',',')';
+% stimulus_arr(:,1,:) = []; % stimulus_arr(1,:,:) before transposed above
+% stimulus_arr        = reshape(stimulus_arr,[40,40,6000,4]);
+% 
+% p.Spectral_Dim = size(stimulus_arr,4);
+% 
+% % if size(stimulus_arr,3) ~= length(trig_times_vec)
+% %     disp('NB: There is a mismatch between the number of stimulus frames and the number of triggers!');
+% % end
+% 
+% 
+% % p.stim_frames = size(stimulus_arr,3);   % PAR Mod 27,08,2020 (moved from below, was stim_frames)
+% % p.Num_trigs   = length(trig_times_vec); % PAR Mod 27,08,2020
+% %@mars: This will not work and is kind of circular. How do we know how many
+% %stim frames we need to load? Only based on the stimulus channel, but than
+% %we can never have more trigger signals than frames by definition.
+
+
+
+p.stim_frames = size(stimulus_arr,3);   % PAR Mod 27,08,2020 (moved from below, was stim_frames)
+p.Num_trigs   = length(trig_times_vec); % PAR Mod 27,08,2020
+%if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement)
+
+
+
+
+Num_FNoise_rep      = nr_frozen; 
+p.Num_FNoise_rep_ceil = ceil(Num_FNoise_rep);
+max_trig_int        = max(diff(trig_times_vec(1:p.stim_frames)));
+inter_noise_int_vec = NaN(p.Num_FNoise_rep_ceil-1,1);
+for i = 1:p.Num_FNoise_rep_ceil-1
+    inter_noise_int_vec(i) = trig_times_vec(i*p.stim_frames+1)-trig_times_vec(i*p.stim_frames);
+end
+    
+%end
+
+
 noise_length         = min(p.Num_trigs,p.stim_frames); % PAR Mod 27,08,2020 Do this rather than just stim_frames incase only part of one chunk used
+%@mars: Not sure, what noise_length is supposed to be!? Is this the length
+%of one noise repeat?
 trig_times_vec_trunc = trig_times_vec(1:noise_length); % PAR Mod 27,08,2020 (truncated to first noise chunk)
 
 %%% Set Parameters
 
 % Stimulus ppties
-stim_freq = 20;          % Hz
+stim_freq = 20;        % Hz @mars: This should be defined programatically and not hard coded
+
 stim_int  = 1/stim_freq; % sec
 
 if p.Time_Choice == 1 % stimulus frames
@@ -545,6 +666,7 @@ else %  Parpool == 2 % Parpool off
     
 end
 toc;
+end
 
 %% Save Data
 %save('Save_Name.mat','-v7.3')
