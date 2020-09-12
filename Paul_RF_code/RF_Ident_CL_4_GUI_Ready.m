@@ -278,6 +278,7 @@ noise_begins = trig_times_diff > 5*mean(trig_times_diff);
 nr_frozen = nnz(noise_begins)+1;%@mars: +1 because diff finds the difference
 noise_begins_idx = ones(1,nr_frozen);
 noise_begins_idx(2:end) = find(noise_begins); %@mars: index in trig_index_vec_temp 
+p.noise_begins_idx = noise_begins_idx;
 % of the begining of each frozen noise repeat
 
 
@@ -383,7 +384,7 @@ trig_times_vec_trunc = trig_times_vec(1:noise_length); % PAR Mod 27,08,2020 (tru
 % Stimulus ppties
 % stim_freq = 20;        % Hz @mars: This should be defined programatically and not hard coded
 
-stim_freq = ceil05(nanmean(diff(trig_times_vec(1:noise_length))),0.05); %@mars: This should work in most cases... but if
+stim_freq = 1/ceil05(nanmean(diff(trig_times_vec(1:noise_length))),0.05); %@mars: This should work in most cases... but if
 %there are too many outliers we might want to ask the user...
 
 stim_int  = 1/stim_freq; % sec
@@ -563,7 +564,10 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
             else % If there are gaps between (any) frozen noise chuncks
                 
                 for j = 1:p_par.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
-                    spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec_par(j*p_par.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec_par(j*p_par.stim_frames+p_par.Num_STE_bins+1))) = [];
+                    %spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec_par(j*p_par.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec_par(j*p_par.stim_frames+p_par.Num_STE_bins+1))) = [];
+                    %Quick and dirty bug fix (Removed the "+ p.Num_STE
+                    %part")
+                    spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec_par(j*p_par.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec_par(j*p_par.stim_frames+1))) = [];
                 end
                 
                 for j = 2:p_par.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
@@ -576,14 +580,14 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                     
                     for k = 1:frame_end_loop
                         if k<frame_end_loop % frame_end_loop<p.stim_frames
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
+                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
                             a_loop      = trig_times_vec(k);
                             b_loop      = trig_times_vec(k+1);
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k + 1);
                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         else % k==frame_end_loop % frame_end_loop==p.stim_frames % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k) + stim_int));
+                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k) + stim_int));
                             a_loop      = trig_times_vec(k);
                             b_loop      = trig_times_vec(k+1);
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
