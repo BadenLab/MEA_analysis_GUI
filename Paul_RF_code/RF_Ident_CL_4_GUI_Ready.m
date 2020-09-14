@@ -500,7 +500,7 @@ cell_indices_temp = cell_indices_temp(1,right_indices);
     
 %% Call RF Identification Function
 % MEA data: stimulus_array := 40 rows, 40 columns,6000 frames, 4 colours
-
+a = 1;
 RF_Ident = cell(stx,1);
 
 if p.RF_Ident_Meth_vec(1) == 1 % STA-SD method
@@ -550,11 +550,11 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                             b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k + 1);
                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         else % (k == frame_end_loop) && (j == p.Num_FNoise_rep_ceil) % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec_par((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k) + stim_int));
+                            indices_loop = find((spike_times_vec_loop>trig_times_vec_par((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int));
                             a_loop      = trig_times_vec_par(k);
                             b_loop      = trig_times_vec_par(k+1);
                             a_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k);
-                            b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k) + stim_int;
+                            b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int;
                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         end
                     end
@@ -580,20 +580,27 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                     
                     for k = 1:frame_end_loop
                         if k<frame_end_loop % frame_end_loop<p.stim_frames
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
+                            
+                            indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
                             a_loop      = trig_times_vec(k);
                             b_loop      = trig_times_vec(k+1);
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k + 1);
                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         else % k==frame_end_loop % frame_end_loop==p.stim_frames % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k) + stim_int));
+                            indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k) + min_end_int));
                             a_loop      = trig_times_vec(k);
                             b_loop      = trig_times_vec(k+1);
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
-                            b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k) + stim_int;
+                            b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k) + min_end_int;
                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         end
+                       test(a).indices_loop = indices_loop;
+                       test(a).k = k;
+                       test(a).j = j;
+                       a = a+1;
+                        
+                        
                     end
                     
                 end
