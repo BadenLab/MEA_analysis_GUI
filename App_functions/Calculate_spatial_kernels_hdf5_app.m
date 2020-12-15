@@ -59,7 +59,7 @@ noise_end = stim_end(nn)*SamplingFrequency;
 noise_begin_s = stim_begin(nn);
 noise_end_s = stim_end(nn);
 
-noise_trigger_trace(1,:) = Ch01_02(noise_begin:noise_end);
+noise_trigger_trace(1,:) = Ch01_02(int64(noise_begin):int64(noise_end));
 noise_trigger_trace(2,:) = (noise_begin:1:noise_end);
 noise_diff_trigger = diff(noise_trigger_trace(1,:));
 noise_trigger_norm = noise_trigger_trace(1,:) > 2500;
@@ -378,11 +378,11 @@ waitmessage.Destroy;
 kernel_idx = size(Kernel_location_temp,1);
 
 if isempty(Kernel_location)
-    Kernel_location(1:kernel_idx,1) = Kernel_location_temp;
+    Kernel_location(1:kernel_idx,1) = Kernel_location_temp(:,1);
     Kernel_location(1:kernel_idx,2) = cell_indices_temp; 
 else
     
-    Kernel_location(end:end+kernel_idx-1,1) = Kernel_location_temp;
+    Kernel_location(end:end+kernel_idx-1,1) = Kernel_location_temp(:,1);
     Kernel_location(end:end+kernel_idx-1,2) = cell_indices_temp; 
 end
 

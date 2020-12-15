@@ -72,7 +72,7 @@ for ii = 1:length(stim_begin) %Loop over stimuli
     %trigger channel
     stim_begin_frame = stim_begin_temp*SamplingFrequency;
     stim_end_frame = stim_end_temp*SamplingFrequency;
-    trigger_ch = Ch.Ch01_02(stim_begin_frame:stim_end_frame);
+    trigger_ch = Ch.Ch01_02(int64(stim_begin_frame):int64(stim_end_frame));
     
     %identify trigger signals
     noise_trigger_norm = trigger_ch(1,:) > 2500;

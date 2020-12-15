@@ -35,7 +35,7 @@ if isfield(variables,'ax')
         in = in';
     end
     
-    yvalue = ones(length(in),1)*0.25;
+    yvalue = ones(size(in,1),1)*0.25;
 
 
     
@@ -45,7 +45,7 @@ if isfield(variables,'ax')
 
     end
     ylim(ax,[0,1+ii*0.25])
-    xlim(ax,[-0.5,max(in,[],'all')+1])
+    xlim(ax,[-0.5,nanmax(in,[],'all')+1])
     
     hold(ax,'off')
     
@@ -70,7 +70,7 @@ else
 
     end
     ylim([0,1+ii*0.25])
-    xlim([-0.5,max(in,[],'all')+1])
+    xlim([-0.5,nanmax(in,[],'all')+1])
     
     hold off
     

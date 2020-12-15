@@ -58,7 +58,7 @@ for kk = 1:nr_cells
            var_of_mean = nanvar(FFF_average(kk).traces(:,ii));
            mean_of_var = nanmean(nanvar(cell_bins,[],1));
            FFF_average(kk).stats(:,ii) = var_of_mean/mean_of_var;
-           FFF_average(kk).stats_mean = nanmean(FFF_average(kk).stats(:,ii));
+           FFF_average(kk).stats_max = nanmax(FFF_average(kk).stats(:,ii));
             
        catch
            continue
@@ -93,7 +93,7 @@ out = sf_organizer(stim_idx,savepath,'variable_name','FFF_average','variable',FF
  
 %% Create stat figures
 overview_FFF = figure;
-bar([FFF_average.cell_idx],[FFF_average.stats_mean],'k');
+bar([FFF_average.cell_idx],[FFF_average.stats_max],'k');
 title("Quality of FFF responses")
 ylabel("Quality Index")
 xlabel("Cell index")

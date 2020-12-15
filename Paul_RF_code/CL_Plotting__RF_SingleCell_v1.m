@@ -3,7 +3,7 @@
 % Choose which cell RF to plot
 Cell_to_Plot  = 2;
 
-RF_Ident_Plot = RF_Ident{Cell_to_Plot,1};
+RF_Ident_Plot = RF_Ident{Cell_to_Plot,1};C
 
 
 

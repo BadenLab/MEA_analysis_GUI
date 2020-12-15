@@ -242,7 +242,7 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         
         % Specrtal RF
         figure;
-        for i = 1:p.Spectral_Dim
+        for i = 1:double(p.Spectral_Dim)
             subplot(2,2,i);
             hist_loop = histogram(Num_STASD_ASP_RF_Pixels_mat(:,i));
             if Hist_Colour_Choice == 2
@@ -313,7 +313,7 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         
         % Spectral RF
         figure;
-        for i = 1:p.Spectral_Dim
+        for i = 1:double(p.Spectral_Dim)
             subplot(2,2,i);
             hist_loop = histogram(STASD_Gaus_Num_RF_pixels_mat(:,i));
             if Hist_Colour_Choice == 2
@@ -379,7 +379,7 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         
         % Spectral RF
         figure;
-        for i = 1:p.Spectral_Dim
+        for i = 1:double(p.Spectral_Dim)
             subplot(2,2,i);
             hist_loop = histogram(STASD_Gaus_Abs_Ellipse_Area_mat(:,i));
             if Hist_Colour_Choice == 2

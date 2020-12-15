@@ -10,7 +10,7 @@ function out = Loadspikes_app
 
 %% variables
 hz_threshold.min_distance = 0.005;
-hz_threshold.hz_threshold = 0.1;
+hz_threshold.hz_threshold = 0.3;
 
 %% Get the Hdf5 file
 %Load the sorted spikes
@@ -86,6 +86,7 @@ if choice == 2
     title("Number of spikes per cluster")
     xlabel("cell index")
     ylabel("Nr of spikes")
+   
 
     
 end
@@ -192,7 +193,7 @@ end
 
 % Plot results of the test
 max_hz = 1/hz_threshold.min_distance;
-figure;
+freq_fig = figure;
 hold on
 bar(cell_indices,st_validated,'k')
 title(["Number of cells that show response frequencies above ",max_hz," Hz"]);
@@ -321,7 +322,7 @@ save_var ={'FFF','noise','gratings','chirp','spiketimestamps',...
     'savename', 'Ch', 'cell_indices', 'hz_threshold'...
     };
 save([out.savename], save_var{:})
-
-
+savefig(hdf_fig,[out.pathname,'hdf_figure.fig']);
+%savefig(freq_fig,[out.pathname,'freq_figure.fig']);
 
 end

@@ -17,7 +17,7 @@ true_kernel_pixel = zeros(1,max_detect);
 h = waitbar(0,'Please wait...');
 for kk = 1:nr_Kernels
     waitbar(kk/nr_Kernels,h,[num2str(kk),' of ', num2str(nr_Kernels)]);
-    
+    try
     S = load(Kernel_location(kk,1));
     Kernel = S.Kernels;
     for ff = 1:size(Kernel,3)
@@ -47,6 +47,9 @@ for kk = 1:nr_Kernels
     end
    Kernel_info(kk).true_kernel_log = logical(Kernel_info(kk).nr_true_kernel);
    Kernel_info(kk).cell_idx = Kernel_location(kk,2);
+    catch
+        continue
+    end
 end
 close(h)
 

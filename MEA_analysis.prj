@@ -1,5 +1,5 @@
 <deployment-project plugin="plugin.apptool" plugin-version="1.0">
-  <configuration build-checksum="1617294794" file="C:\Users\Marvin Seifert\Documents\MATLAB\App\MEA_analysis.prj" location="C:\Users\Marvin Seifert\Documents\MATLAB\App" name="MEA_analysis" target="target.mlapps" target-name="Package App">
+  <configuration build-checksum="3598891292" file="C:\Users\Marvin Seifert\Documents\MATLAB\APP_master\MEA_analysis.prj" location="C:\Users\Marvin Seifert\Documents\MATLAB\APP_master" name="MEA_analysis" target="target.mlapps" target-name="Package App">
     <param.appname>MEA_analysis</param.appname>
     <param.authnamewatermark>Marvin Seifert</param.authnamewatermark>
     <param.email>m.seifert@sussex.ac.uk</param.email>
@@ -8,7 +8,7 @@
     <param.icons />
     <param.summary>This App is a GUI for MEA data analysis obtained using a BIOCAM MEA and initial spike sorting done with the HS2 algorithm by M. Hennig et al</param.summary>
     <param.description>The App loads spiketimes and stimulus information and allows for analysis by written functions selectable from the user interface. For some key analysis steps it offers subtabs with respective parameters and plotting possibilities.</param.description>
-    <param.screenshot>C:\Users\Marvin Seifert\AppData\Local\Temp\tpcee192b9_8b86_4130_be47_d77efd201600.png</param.screenshot>
+    <param.screenshot>C:\Users\Marvin Seifert\AppData\Local\Temp\tp7d303b73_97b8_4a86_a094_c54165032af0.png</param.screenshot>
     <param.version>1.0</param.version>
     <param.products.name />
     <param.products.id />
@@ -30,28 +30,7 @@
     </fileset.main>
     <fileset.depfun>
       <file>C:\Users\Marvin Seifert\Documents\MATLAB\Add-Ons\Toolboxes\CMOcean Colormaps\code\@Colormap\Colormap.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\autoArrangeFigures.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\ceil05.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_confmean.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_dist.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_kurtosis.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_mean.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_moment.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_r.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_rtest.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_skewness.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_std.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\circ_var.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\formatSubplot.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\CircStat2012a\parseVarArgs.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\Colormap.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\findstimtimes.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\hline.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\lastNaN.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\numSubplots.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\sequence_complete.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\unique_test.m</file>
-      <file>C:\Users\Marvin Seifert\Documents\MATLAB\znormalise.m</file>
+      <file>C:\Users\Marvin Seifert\Documents\MATLAB\vline.m</file>
     </fileset.depfun>
     <fileset.resources>
       <file>${PROJECT_ROOT}</file>

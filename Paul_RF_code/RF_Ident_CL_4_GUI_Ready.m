@@ -9,7 +9,7 @@ cell_indices = M.cell_indices;
 
 %% Choose whether to use parallel processing and number of cores
 Parpool = add_info.settings.parpro;
-Num_Cores = 4;
+%Num_Cores = 4;
 
 %% Make RF Identification Choices
 
@@ -25,7 +25,7 @@ p.RF_Ident_Meth_vec = [kernel_settings.SS,0,0,kernel_settings.CI];
 % Choose whether to calculate STE_Full for use with LC/MI/SC % PAR Mod 27,08,2020
 % 1: Yes,
 % 2: No.
-p.STE_Full_Choice = 1;
+p.STE_Full_Choice = 1;%2;
 
 % Choose RF Quality Control (QC) and Thresholds
 if p.RF_Ident_Meth_vec(1) == 1
@@ -37,10 +37,10 @@ if p.RF_Ident_Meth_vec(1) == 1
     
     if p.STA_SD_QC_Type == 1
         % Choose SD Threshold
-        p.STA_SD_Thresh = kernel_settings.SS_Std; % MEA Data 1 (50px) -- 5 seems good. 
+        p.STA_SD_Thresh = kernel_settings.SS_STD; % MEA Data 1 (50px) -- 5 seems good. 
     elseif p.STA_SD_QC_Type == 2
         % Choose Upper Percentile
-        p.STA_SD_CI_Per = kernel_settings.QC_CI_Upper; % default: 1 (%)
+        p.STA_SD_CI_Per = kernel_settings.SS_CI_Upper; % default: 1 (%)
     end
          
 end
@@ -88,10 +88,10 @@ if p.RF_Ident_Meth_vec(4) == 1
     
     if p.SC_QC_Type == 1
         % Choose SD Threshold
-        p.SC_Thresh = kernel_settings.QC_Std;  % MEA Data 1 (50px): 7 seems good.
+        p.SC_Thresh = kernel_settings.SC_STD;  % MEA Data 1 (50px): 7 seems good.
     elseif p.SC_QC_Type == 2
         % Choose Upper Percentile
-        p.SC_CI_Per = kernel_settings.QC_CI_Upper; % default: 1 (%)
+        p.SC_CI_Per = kernel_settings.SC_CI_Lower; % default: 1 (%)
     end
          
 end
@@ -230,7 +230,7 @@ stimulus_nr = numel(stim_begin); %Nr of selected noise stimuli
 
 for nn = 1:stimulus_nr %Loop over selected stimuli
 
-%% Load Data modified by @mars
+%% Load Data modified @mars
 %% Trigger channel for each stimulus    
 noise_begin = stim_begin(nn)*SamplingFrequency;
 noise_end = stim_end(nn)*SamplingFrequency;
@@ -256,10 +256,10 @@ max_trigCh_vec     = max(trigCh_vec);
 trigThreshFac      = 0.05; % 0.1
 trigHigh_vec       = double(trigCh_vec > min_trigCh_vec + trigThreshFac*(max_trigCh_vec-min_trigCh_vec));
 [~,trig_index_vec_temp] = findpeaks(trigHigh_vec);% 'MinPeakProminence',#,'MinPeakDistance',#
-trig_index_vec = zeros(1,size(trig_index_vec_temp,2)+2);
+trig_index_vec = zeros(1,size(trig_index_vec_temp,2)+1);
 trig_index_vec(1,1) = 1;
-trig_index_vec(1,2:end-1) = trig_index_vec_temp;
-trig_index_vec(1,end) = size(trigHigh_vec,2);
+trig_index_vec(1,2:end) = trig_index_vec_temp;
+%trig_index_vec(1,end) = size(trigHigh_vec,2);
 sampling_freq      = SamplingFrequency;
 sampling_int       = 1/sampling_freq;
 
@@ -292,13 +292,17 @@ if nr_frozen > 1
     else %@mars: Only possibility is that the last repeat is shorter
         trig_per_frozen = int64(noise_begins_idx(2));
     end
-            
+                
 else %If effectively no frozen noise is played but only on sequence
     trig_per_frozen = length(trig_times_vec);
     warning('No noise repeats detected, assuming only 1 noise sequence and no frozen repeats');
+    nr_trig_last_repeat = 0;
 end
+p.Gap_Ind = 2;
     
 %@mars: Now we can load the sequence according to what was played
+%@mars: Need to add part that deals with case of no gaps between noise
+%chunks
 
 
 p.stim_frames = double(trig_per_frozen);   % PAR Mod 27,08,2020 (moved from below, was stim_frames)
@@ -374,21 +378,30 @@ fprintf(['Loaded ', num2str(trig_per_frozen),' frames from noise file']);
 %%
 
 
-noise_length         = min(p.Num_trigs,p.stim_frames); % PAR Mod 27,08,2020 Do this rather than just stim_frames incase only part of one chunk used
+p.noise_length         = min(p.Num_trigs,p.stim_frames); % PAR Mod 27,08,2020 Do this rather than just stim_frames incase only part of one chunk used
 %@mars: Not sure, what noise_length is supposed to be!? Is this the length
 %of one noise repeat?
-trig_times_vec_trunc = trig_times_vec(1:noise_length); % PAR Mod 27,08,2020 (truncated to first noise chunk)
+trig_times_vec_trunc = trig_times_vec(1:p.noise_length); % PAR Mod 27,08,2020 (truncated to first noise chunk)
 
 %%% Set Parameters
 
 % Stimulus ppties
 % stim_freq = 20;        % Hz @mars: This should be defined programatically and not hard coded
 
-stim_freq = 1/ceil05(nanmean(diff(trig_times_vec(1:noise_length))),0.05); %@mars: This should work in most cases... but if
+stim_freq_check = 1/ceil05(nanmean(diff(trig_times_vec(1:p.noise_length))),0.05); %@mars: This should work in most cases... but if
 %there are too many outliers we might want to ask the user...
 
-stim_int  = 1/stim_freq; % sec
+%Compare calculated frequency to the user input and through error if they
+%dont match
+stim_freq = add_info.settings.kernel_new.Hz;
 
+if stim_freq ~= round(stim_freq_check)
+    warning('User input stimulus frequency does not match trigger frequency')
+end
+
+
+stim_int  = 1/stim_freq; % sec
+p.stim_int = stim_int;
 if p.Time_Choice == 1 % stimulus frames
     
     p.stim_timesample_vec = linspace(-stim_int*p.Num_STE_bins,-stim_int,p.Num_STE_bins);
@@ -486,22 +499,22 @@ cell_indices_temp = cell_indices(batch_begins(bb):batch_ends(bb));
 
 %Quality Check
 
-right_indices = quality_check_spikes(spiketimestamps,10); %This needs to be 
-%tested further;
-spiketimestamps = spiketimestamps(:,right_indices);
+% right_indices = quality_check_spikes(spiketimestamps,10); %This needs to be 
+% %tested further;
+% spiketimestamps = spiketimestamps(:,right_indices);
 %set times relative to stimulus begin
 spiketimestamps = spiketimestamps - noise_begin_s;
-spiketimestamps(:,~any(~isnan(spiketimestamps))) = [];
+%spiketimestamps(:,~any(~isnan(spiketimestamps))) = [];
 
 stx = size(spiketimestamps,2);
 sty = size(spiketimestamps,1);  
 
-cell_indices_temp = cell_indices_temp(1,right_indices);
+%cell_indices_temp = cell_indices_temp(1,right_indices);
     
 %% Call RF Identification Function
 % MEA data: stimulus_array := 40 rows, 40 columns,6000 frames, 4 colours
 a = 1;
-RF_Ident = cell(stx,1);
+%RF_Ident = cell(stx,1);
 
 if p.RF_Ident_Meth_vec(1) == 1 % STA-SD method
     if p.STA_Choice  == 2 % subtract average stim
@@ -517,15 +530,36 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
     
     %parpool(Num_Cores);
     
-    for i = 1:stx % for/parfor
-        
+    parfor i = 1:stx % for/parfor
+        i
+        settings = add_info;  
         p_par = p;
         trig_times_vec_par = trig_times_vec; %@mars: added this declaration
         %to avoid uneccessary communication between the workers in the parloop.
         spike_times_vec_loop      = spiketimestamps(:,i);
+        %Check if all values are NAN
+        test_for_NaN = find(all(isnan(spike_times_vec_loop),1));
+        if test_for_NaN
+            RF_Ident(i).RF_results = NaN;
+            RF_Ident(i).cell_idx = cell_indices_temp(i);
+             
+            RF_Ident(i).add_info = settings;
+            
+            continue
+        end
+        
         spike_times_vec_loop(isnan(spike_times_vec_loop)) = []; % spiketimestamps(~isnan(spiketimestamps(:,Cell_Choice)),Cell_Choice);
         spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop>(first_trig_time + min_start_int));
-        spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
+        %spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
+        if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (nr_trig_last_repeat == 0)  % PAR Mod 17,09,2020 (whole if statement, replaces 'spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));')
+            spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
+        else % Num_Trig_Final_NoiseChunk < p.Num_STE_bins + 1
+            spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(trig_times_vec(p.stim_frames*(p.Num_FNoise_rep_ceil-1)) + min_end_int));
+        end
+        
+        
+        
+        
         
         if p_par.Num_trigs > p_par.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement)
             
@@ -548,26 +582,41 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                             b_loop      = trig_times_vec_par(k+1);
                             a_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k + 1);
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                            %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         else % (k == frame_end_loop) && (j == p.Num_FNoise_rep_ceil) % No end time is given for the last frame so have to specify differently
                             indices_loop = find((spike_times_vec_loop>trig_times_vec_par((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int));
                             a_loop      = trig_times_vec_par(k);
                             b_loop      = trig_times_vec_par(k+1);
                             a_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int;
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                            %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         end
+                        spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
                     end
                     
                 end
                 
+                
+                 % Map spike in interval after last stimulus window % PAR Mod 17,09,2020 (everything from here to the next 'else' is new)
+                indices_loop = find((spike_times_vec_loop>trig_times_vec(p.Num_trigs) + stim_int)...
+                                   &(spike_times_vec_loop<trig_times_vec(p.Num_trigs) + min_end_int));
+                a_loop      = trig_times_vec(1);
+                b_loop      = trig_times_vec(2);
+                a_dash_loop = trig_times_vec(p.Num_trigs) + stim_int;
+                b_dash_loop = trig_times_vec(p.Num_trigs) + min_end_int;
+                spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                
             else % If there are gaps between (any) frozen noise chuncks
                 
-                for j = 1:p_par.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
-                    %spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec_par(j*p_par.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec_par(j*p_par.stim_frames+p_par.Num_STE_bins+1))) = [];
-                    %Quick and dirty bug fix (Removed the "+ p.Num_STE
-                    %part")
-                    spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec_par(j*p_par.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec_par(j*p_par.stim_frames+1))) = [];
+                if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (nr_trig_last_repeat == 0) % PAR Mod 17,09,2020 (if statement is new, but first for loop it contains was here originally)
+                    for j = 1:p.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
+                        spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec(j*p.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
+                    end
+                    
+                elseif p.Num_FNoise_rep_ceil>2 % still need to remove spike between earlier chunks, priveded there were more than 2 originally
+                    for j = 1:p.Num_FNoise_rep_ceil-2 % remove spikes with stimulus windows that fall between the noise chunks
+                        spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec(j*p.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
+                    end
                 end
                 
                 for j = 2:p_par.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
@@ -578,7 +627,7 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                         frame_end_loop = p_par.stim_frames;
                     end
                     
-                    for k = 1:frame_end_loop
+                    for k = 1:frame_end_loop+1
                         if k<frame_end_loop % frame_end_loop<p.stim_frames
                             
                             indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
@@ -586,20 +635,32 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                             b_loop      = trig_times_vec(k+1);
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k + 1);
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
-                        else % k==frame_end_loop % frame_end_loop==p.stim_frames % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k) + min_end_int));
+                            %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                       elseif  k==frame_end_loop % No end time is given for the last frame so have to specify differently % PAR Mod 17,09,2020 (was 'else')
+                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int)); % PAR Mod 17,09,2020 (& not &&)
                             a_loop      = trig_times_vec(k);
-                            b_loop      = trig_times_vec(k+1);
+                            b_loop      = trig_times_vec(k) + stim_int; % PAR Mod 17,09,2020 (trig_times_vec(k) + stim_int not trig_times_vec(k+1))
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k) + min_end_int;
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
-                        end
-                       test(a).indices_loop = indices_loop;
-                       test(a).k = k;
-                       test(a).j = j;
-                       a = a+1;
+                            %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         
+                        else % k==frame_end_loop+1 % PAR Mod 17,09,2020 (everything between this else statement and the end of the if statement is new)
+                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k-1) + stim_int)...
+                                               &(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k-1) + min_end_int));
+                            if frame_end_loop == p.stim_frames
+                                a_loop      = trig_times_vec(p.stim_frames) + stim_int;
+                                b_loop      = trig_times_vec(p.stim_frames) + min_end_int;
+                                a_dash_loop = trig_times_vec(j*p.stim_frames) + stim_int;
+                                b_dash_loop = trig_times_vec(j*p.stim_frames) + min_end_int;
+                            else %frame_end_loop < p.stim_frames
+                                a_loop      = trig_times_vec(k);
+                                b_loop      = trig_times_vec(k+1);
+                                a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k-1) + stim_int;
+                                b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k-1) + min_end_int;
+                            end
+                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
+                        end    
+                                        
                         
                     end
                     
@@ -612,7 +673,14 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
         %p.length_spike_times      = length(spike_times_vec_loop);
         length_spike_times_loop   = length(spike_times_vec_loop); % To allow parfor
         
-        RF_Ident{i} = RF_Ident_fn_v5(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p_par); % PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        %RF_Ident{i} = RF_Ident_fn_v5(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p_par); % PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).RF_results = RF_Ident_fn_v6(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).cell_idx = cell_indices_temp(i);
+        
+        RF_Ident(i).add_info = settings.settings.kernel_new;
+        
+        
+               
         
         disp(i);
         
@@ -625,6 +693,17 @@ else %  Parpool == 2 % Parpool off
     for i = 1:True_Num_Cells
         
         spike_times_vec_loop      = spiketimestamps(:,i);
+        
+        test_for_NaN = find(all(isnan(spike_times_vec_loop),1));
+        if test_for_NaN
+            RF_Ident(i).RF_results = NaN;
+            RF_Ident(i).cell_idx = cell_indices_temp(i);
+            if i == 1&& bb == 1 
+                RF_Ident(i).add_info = add_info.settings.kernel_new;
+            end
+            continue
+        end
+        
         spike_times_vec_loop(isnan(spike_times_vec_loop)) = []; % spiketimestamps(~isnan(spiketimestamps(:,Cell_Choice)),Cell_Choice);
         spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop>(first_trig_time + min_start_int));
         spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
@@ -704,16 +783,344 @@ else %  Parpool == 2 % Parpool off
         %p.length_spike_times      = length(spike_times_vec_loop);
         length_spike_times_loop   = length(spike_times_vec_loop); % To allow parfor
         
-        RF_Ident{i} = RF_Ident_fn_v5(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).RF_results = RF_Ident_fn_v6(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).cell_idx = cell_indices_temp(i);
         
-        disp(i);
+        %Add info if first cell
+        
+        RF_Ident(i).add_info = add_info.settings.kernel_new;
+        
+           
         
     end
     
 end
+
+%Add some extra info
+%Check if RF was found
+
+
+        
+        
+        
+%% Data organization and saving
+%We have 2 x 2 conditions:
+%STASD - SDThreshold, STASD - Confidence Interval
+%SelfCovariance - SDThreshold, SelfCovaricance - Confidence Interval
+
+%We need to save these independently, so it doesnt get overwritten when the
+%repective other QC Type is choosen.
+
+
+
+
+
+if add_info.settings.kernel_new.SS_Std 
+    
+    %Saving the RF info
+    subfoldername = ['RF_Ident_SS_Std_Thr_',num2str(add_info.settings.kernel_new.SS_STD)];
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername);
+    f = waitbar(0,'Saving files, file:');
+    
+    for rf = 1:length(RF_Ident)
+        if isstruct(RF_Ident(rf).RF_results)
+         waitbar(rf/length(RF_Ident),f,['Saving files, file: ',num2str(rf)])
+         RF_overview(rf).file = strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)));
+         fileID = fopen(strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)),'.bin'),'w');
+         fwrite(fileID,hlp_serialize(RF_Ident(rf)));
+         fclose(fileID);
+        end
+%          save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_Ident(rf),...
+%                 'variable_name',['RF_Ident_',num2str(cell_indices_temp(rf))]);
+    end
+    try
+        close(f)
+    catch
+        continue
+    end
+    [~] = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'collect_files',true);
+    
+    %Check for Gaussian RF
+    for i = 1:length(RF_Ident) 
+        try
+            if RF_Ident(i).RF_results.STASD_Gaus_FullRF_Num_pixels >= 1
+                RF_overview(i).STASD_Gaus_RF = true;
+
+            else
+
+                RF_overview(i).STASD_Gaus_RF = false;
+            end
+        catch 
+            RF_overview(i).STASD_Gaus_RF = false;
+        end
+    %Check for ASP RF
+        try
+            if RF_Ident(i).RF_results.STASD_ASP_FullRF_Num_pixels >= 1
+                RF_overview(i).STASD_ASP_RF = true;
+
+            else
+
+                RF_overview(i).STASD_ASP_RF = false;
+            end
+        catch 
+            RF_overview(i).STASD_ASP_RF = false;
+        end
+     %Check for Box RF
+        try
+            if RF_Ident(i).RF_results.STASD_Box_FullRF_Num_pixels >= 1
+                RF_overview(i).STASD_Box_RF = true;
+
+            else
+
+                RF_overview(i).STASD_Box_RF = false;
+            end
+        catch 
+            RF_overview(i).STASD_Box_RF = false;
+        end
+        
+        RF_overview(i).cell_idx = cell_indices_temp(i);
+        
+        
+    end
+    
+    if bb == 1
+        save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_overview,...
+            'variable_name','RF_overview');
+       
+    else
+            %Create matfile and attach files to existing batch
+        M = matfile(save_location,'Writable',true);
+        M.RF_overview(1,batch_begins(bb):batch_ends(bb)) = RF_overview;
+
+
+    end
+    
+   
+    
+elseif add_info.settings.kernel_new.SS_CI
+    
+    %Saving the RF info
+    subfoldername = ['RF_Ident_SS_CI_Thr_',num2str(add_info.settings.kernel_new.SS_CI_Upper)];
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername);
+    f = waitbar(0,'Saving files, file:');
+    
+    for rf = 1:length(RF_Ident)
+        if isstruct(RF_Ident(rf).RF_results)
+         waitbar(rf/length(RF_Ident),f,['Saving files, file: ',num2str(rf)])
+         RF_overview(rf).file = strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)));
+         fileID = fopen(strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)),'.bin'),'w');
+         fwrite(fileID,hlp_serialize(RF_Ident(rf)));
+         fclose(fileID);
+        end
+%          save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_Ident(rf),...
+%                 'variable_name',['RF_Ident_',num2str(cell_indices_temp(rf))]);
+    end
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'collect_files',true);
+    
+    
+    %Check for Gaussian RF
+    for i = 1:stx 
+        try
+            if RF_Ident(i).RF_results.STASD_Gaus_FullRF_Num_pixels >= 1
+                RF_overview(i).STASD_Gaus_RF = true;
+
+            else
+
+                RF_overview(i).STASD_Gaus_RF = false;
+            end
+        catch 
+            RF_overview(i).STASD_Gaus_RF = false;
+        end
+    %Check for ASP RF
+        try
+            if RF_Ident(i).RF_results.STASD_ASP_FullRF_Num_pixels >= 1
+                RF_overview(i).STASD_ASP_RF = true;
+
+            else
+
+                RF_overview(i).STASD_ASP_RF = false;
+            end
+        catch 
+            RF_overview(i).STASD_ASP_RF = false;
+        end
+     %Check for Box RF
+        try
+            if RF_Ident(i).RF_results.STASD_Box_FullRF_Num_pixels >= 1
+                RF_overview(i).STASD_Box_RF = true;
+
+            else
+
+                RF_overview(i).STASD_Box_RF = false;
+            end
+        catch 
+            RF_overview(i).STASD_Box_RF = false;
+        end
+        RF_overview(i).cell_idx = cell_indices_temp(i);
+        
+        
+    end
+        
+    
+    if bb == 1
+        save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_overview,...
+            'variable_name','RF_overview');
+       
+    else
+            %Create matfile and attach files to existing batch
+        M = matfile(save_location,'Writable',true);
+        M.RF_overview(1,batch_begins(bb):batch_ends(bb)) = RF_overview;
+
+
+    end
+
+    
+elseif add_info.settings.kernel_new.SC_Std
+    
+    subfoldername = ['RF_Ident_SC_Std_Thr_',num2str(add_info.settings.kernel_new.SC_STD)];
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername);
+    f = waitbar(0,'Saving files, file:');
+    
+    for rf = 1:length(RF_Ident)
+        if isstruct(RF_Ident(rf).RF_results)
+         waitbar(rf/length(RF_Ident),f,['Saving files, file: ',num2str(rf)])
+         RF_overview(rf).file = strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)));
+         fileID = fopen(strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)),'.bin'),'w');
+         fwrite(fileID,hlp_serialize(RF_Ident(rf)));
+         fclose(fileID);
+        end
+%          save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_Ident(rf),...
+%                 'variable_name',['RF_Ident_',num2str(cell_indices_temp(rf))]);
+    end
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'collect_files',true);
+    
+    for i = 1:stx 
+        %Check for Gaussian RF
+        try
+            if RF_Ident(i).RF_results.SC_Gaus_FullRF_Num_pixels >= 1
+                RF_overview(i).SC_Gaus_RF = true;
+            else
+                RF_overview(i).SC_Gaus_RF = false;
+            end
+        catch 
+            RF_overview(i).SC_Gaus_RF = false;
+        end
+        %Check for ASP RF
+        try
+            if RF_Ident(i).RF_results.SC_ASP_FullRF_Num_pixels >= 1
+                RF_overview(i).SC_ASP_RF = true;
+            else
+                RF_overview(i).SC_ASP_RF = false;
+            end
+        catch 
+            RF_overview(i).SC_ASP_RF = false;
+        end
+        %Check for Box RF
+         try
+            if RF_Ident(i).RF_results.SC_Box_FullRF_Num_pixels >= 1
+                RF_overview(i).SC_Box_RF = true;
+            else
+                RF_overview(i).SC_Box_RF = false;
+            end
+        catch 
+            RF_overview(i).SC_Box_RF = false;
+        end
+        RF_overview(i).cell_idx = cell_indices_temp(i);
+    end
+    
+    if bb == 1
+        save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_overview,...
+            'variable_name','RF_overview');
+       
+    else
+            %Create matfile and attach files to existing batch
+        M = matfile(save_location,'Writable',true);
+        M.RF_overview(1,batch_begins(bb):batch_ends(bb)) = RF_overview;
+
+
+    end
+
+elseif add_info.settings.kernel_new.SC_CI
+    
+    subfoldername = ['RF_Ident_SC_CI_Thr_',num2str(add_info.settings.kernel_new.SC_CI)];
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername);
+    f = waitbar(0,'Saving files, file:');
+    
+    for rf = 1:length(RF_Ident)
+        if isstruct(RF_Ident(rf).RF_results)
+         waitbar(rf/length(RF_Ident),f,['Saving files, file: ',num2str(rf)])
+         RF_overview(rf).file = strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)));
+         fileID = fopen(strcat(save_folder,'\RF_Ident_',num2str(cell_indices_temp(rf)),'.bin'),'w');
+         fwrite(fileID,hlp_serialize(RF_Ident(rf)));
+         fclose(fileID);
+        end
+%          save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_Ident(rf),...
+%                 'variable_name',['RF_Ident_',num2str(cell_indices_temp(rf))]);
+    end
+    save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'collect_files',true);
+    
+    for i = 1:stx 
+        %Check for Gaussian RF
+        try
+            if RF_Ident(i).RF_results.SC_Gaus_FullRF_Num_pixels >= 1
+                RF_overview(i).SC_Gaus_RF = true;
+            else
+                RF_overview(i).SC_Gaus_RF = false;
+            end
+        catch 
+            RF_overview(i).SC_Gaus_RF = false;
+        end
+        %Check for ASP RF
+        try
+            if RF_Ident(i).RF_results.SC_ASP_FullRF_Num_pixels >= 1
+                RF_overview(i).SC_ASP_RF = true;
+            else
+                RF_overview(i).SC_ASP_RF = false;
+            end
+        catch 
+            RF_overview(i).SC_ASP_RF = false;
+        end
+        %Check for Box RF
+         try
+            if RF_Ident(i).RF_results.SC_Box_FullRF_Num_pixels >= 1
+                RF_overview(i).SC_Box_RF = true;
+            else
+                RF_overview(i).SC_Box_RF = false;
+            end
+        catch 
+            RF_overview(i).SC_Box_RF = false;
+        end
+        RF_overview(i).cell_idx = cell_indices_temp(i);
+    end
+    
+    if bb == 1
+        save_location = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername,'variable',RF_overview,...
+            'variable_name','RF_overview');
+       
+    else
+            %Create matfile and attach files to existing batch
+        M = matfile(save_location,'Writable',true);
+        M.RF_overview(1,batch_begins(bb):batch_ends(bb)) = RF_overview;
+
+
+    end
+end
+   
+
+clear RF_Ident
+clear RF_overview
+end
+end
 toc;
+
+
+
+out = 1;
 end
-end
+
+
+
+
+
 %% Save Data
 %save('Save_Name.mat','-v7.3')
 
