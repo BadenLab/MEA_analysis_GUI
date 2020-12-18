@@ -82,11 +82,11 @@ hdf5_start = p.Results.start_loc;
 hdf5_count = ceil([nr_frames nr_boxes]);
 
 Colour_noise_temp = zeros([uint16(hdf5_count),4]);
+Colour_noise_temp(:,:,1) = h5read(hdf5_file, '/Red_Noise', hdf5_start, hdf5_count);
+Colour_noise_temp(:,:,2) = h5read(hdf5_file, '/Green_Noise', hdf5_start, hdf5_count);
+Colour_noise_temp(:,:,3) = h5read(hdf5_file, '/Blue_Noise', hdf5_start, hdf5_count);
+Colour_noise_temp(:,:,4) = h5read(hdf5_file, '/UV_Noise', hdf5_start, hdf5_count);
 
-Colour_noise_temp(:,:,1) = h5read(hdf5_file, '/UV_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,2) = h5read(hdf5_file, '/Blue_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,3) = h5read(hdf5_file, '/Green_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,4) = h5read(hdf5_file, '/Red_Noise', hdf5_start, hdf5_count);
 
 
 
