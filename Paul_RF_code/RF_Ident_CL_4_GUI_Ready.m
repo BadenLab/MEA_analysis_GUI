@@ -8,8 +8,8 @@ M = matfile(savepath,'Writable',false);
 cell_indices = M.cell_indices;
 
 %% Choose whether to use parallel processing and number of cores
-Parpool = add_info.settings.parpro;
-%Num_Cores = 4;
+Parpool = add_info.settings.parpro; %Decided in the gui
+%Num_Cores = 4; %implement later
 
 %% Make RF Identification Choices
 
@@ -20,7 +20,7 @@ Parpool = add_info.settings.parpro;
 % b: LC method (Local Covariance);
 % c: MI method (Mutual Information).
 % d: SC method (Self Covariance).
-p.RF_Ident_Meth_vec = [kernel_settings.SS,0,0,kernel_settings.CI];
+p.RF_Ident_Meth_vec = [kernel_settings.SS,0,0,kernel_settings.SC];
 
 % Choose whether to calculate STE_Full for use with LC/MI/SC % PAR Mod 27,08,2020
 % 1: Yes,
@@ -122,7 +122,7 @@ end
 % 1. Yes;
 % 2. No.
 p.Plot_Choice = kernel_settings.plot_RF_overview;
-
+p.Time_Plot_Choice = 2;
 %% Make Data Related Choices
 
 %%% Choose MEA cell(s)
@@ -140,12 +140,12 @@ end
 % Choose whether to work with time bins or define own time grid
 % 1. work with stimulus frames;
 % 2. define own time grid.
-p.Time_Choice = 1;
+p.Time_Choice = 1; %Should be in the gui
 
 % Choose whether to subtract the mean raw stimulus in the STA calculation
 % 1. don't subtract mean raw stim;
 % 2. subtract mean raw stim.
-p.STA_Choice  = 2;
+p.STA_Choice  = 2; %Should be in the gui
 
 % Choose whether to calc mean raw stim from stimulus frames (much quicker)
 % or own time grid (much slower but a bit more accurate)
@@ -173,6 +173,8 @@ end
 % Choose length of time window in which to find the STEs
 if p.Time_Choice == 2
     STE_int      = 2;  % sec (default 2) (if create own interpolated values)
+else
+    STE_int = 1;
 end
 
 % Choose stimulus resolution (number of points sampled from stimulus time
@@ -235,7 +237,7 @@ for nn = 1:stimulus_nr %Loop over selected stimuli
 noise_begin = stim_begin(nn)*SamplingFrequency;
 noise_end = stim_end(nn)*SamplingFrequency;
 noise_begin_s = stim_begin(nn);
-noise_end_s = stim_end(nn);
+%noise_end_s = stim_end(nn);
 
 %@mars: Cell selection, not sure this should stay in the code
 % if Cell_Choice == 1 % All cells
@@ -254,7 +256,8 @@ trigCh_vec(1,:) = Ch01_02(noise_begin:noise_end); %This cuts the
 min_trigCh_vec     = min(trigCh_vec);
 max_trigCh_vec     = max(trigCh_vec);
 trigThreshFac      = 0.05; % 0.1
-trigHigh_vec       = double(trigCh_vec > min_trigCh_vec + trigThreshFac*(max_trigCh_vec-min_trigCh_vec));
+trigHigh_vec       = double(trigCh_vec > min_trigCh_vec +...
+    trigThreshFac*(max_trigCh_vec-min_trigCh_vec));
 [~,trig_index_vec_temp] = findpeaks(trigHigh_vec);% 'MinPeakProminence',#,'MinPeakDistance',#
 trig_index_vec = zeros(1,size(trig_index_vec_temp,2)+1);
 trig_index_vec(1,1) = 1;
@@ -292,13 +295,15 @@ if nr_frozen > 1
     else %@mars: Only possibility is that the last repeat is shorter
         trig_per_frozen = int64(noise_begins_idx(2));
     end
+   
                 
 else %If effectively no frozen noise is played but only on sequence
     trig_per_frozen = length(trig_times_vec);
     warning('No noise repeats detected, assuming only 1 noise sequence and no frozen repeats');
     nr_trig_last_repeat = 0;
+    
 end
-p.Gap_Ind = 2;
+ p.Gap_Ind = 2;
     
 %@mars: Now we can load the sequence according to what was played
 %@mars: Need to add part that deals with case of no gaps between noise
@@ -307,15 +312,19 @@ p.Gap_Ind = 2;
 
 p.stim_frames = double(trig_per_frozen);   % PAR Mod 27,08,2020 (moved from below, was stim_frames)
 p.Num_trigs   = length(trig_times_vec); % PAR Mod 27,08,2020
-%if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement)
-
+if p.Num_trigs < p.Num_STE_bins+1 % PAR Mod 09,10,2020 (whole if statement)
+    disp('Number of STE frames exceeds number of triggers; therefore, RF identification is not possible');
+end
+p.noise_length         = min(p.Num_trigs,p.stim_frames); % PAR Mod 27,08,2020 Do this rather than just stim_frames incase only part of one chunk used
+trig_times_vec_trunc = trig_times_vec(1:p.noise_length);
 
 Num_FNoise_rep      = nr_frozen; 
 p.Num_FNoise_rep_ceil = ceil(Num_FNoise_rep);
 max_trig_int        = max(diff(trig_times_vec(1:p.stim_frames)));
 inter_noise_int_vec = NaN(p.Num_FNoise_rep_ceil-1,1);
 for i = 1:p.Num_FNoise_rep_ceil-1
-    inter_noise_int_vec(i) = trig_times_vec(i*p.stim_frames+1)-trig_times_vec(i*p.stim_frames);
+    inter_noise_int_vec(i) = trig_times_vec(i*p.stim_frames+1)-...
+        trig_times_vec(i*p.stim_frames);
 end
 
 %% Noise sequence for each stimulus @mars
@@ -341,7 +350,7 @@ stimulus_arr(:,:,3) = importdata([folder_dir,'Blue_Noise.txt'],',')';
 stimulus_arr(:,:,4) = importdata([folder_dir,'UV_Noise.txt'],',')';
 stimulus_arr(:,1,:) = []; % stimulus_arr(1,:,:) before transposed above
 stimulus_arr        = reshape(stimulus_arr,[40,40,6000,4]);
-nr_colours = 4;
+nr_colours = 4; %mars: has to be in the gui
 end
 
 p.Spectral_Dim = nr_colours;
@@ -375,15 +384,8 @@ fprintf(['Loaded ', num2str(trig_per_frozen),' frames from noise file']);
 % %stim frames we need to load? Only based on the stimulus channel, but than
 % %we can never have more trigger signals than frames by definition.
 
-%%
 
-
-p.noise_length         = min(p.Num_trigs,p.stim_frames); % PAR Mod 27,08,2020 Do this rather than just stim_frames incase only part of one chunk used
-%@mars: Not sure, what noise_length is supposed to be!? Is this the length
-%of one noise repeat?
-trig_times_vec_trunc = trig_times_vec(1:p.noise_length); % PAR Mod 27,08,2020 (truncated to first noise chunk)
-
-%%% Set Parameters
+%% Set and check parameters
 
 % Stimulus ppties
 % stim_freq = 20;        % Hz @mars: This should be defined programatically and not hard coded
@@ -399,9 +401,11 @@ if stim_freq ~= round(stim_freq_check)
     warning('User input stimulus frequency does not match trigger frequency')
 end
 
-
 stim_int  = 1/stim_freq; % sec
 p.stim_int = stim_int;
+
+
+
 if p.Time_Choice == 1 % stimulus frames
     
     p.stim_timesample_vec = linspace(-stim_int*p.Num_STE_bins,-stim_int,p.Num_STE_bins);
@@ -442,16 +446,17 @@ p.stim_columns     = size(stimulus_arr,2);
 p.stim_pixels      = p.stim_rows*p.stim_columns;
 %stim_frames        = size(stimulus_arr,3); % PAR Mod 27,08,2020 (moved above)
 
-Num_stim_spat_dim  = p.stim_rows*p.stim_columns;
+%Num_stim_spat_dim  = p.stim_rows*p.stim_columns;
 
-Num_STE_Stixels = Num_stim_spat_dim*p.Num_STE_bins;
+%Num_STE_Stixels = Num_stim_spat_dim*p.Num_STE_bins;
 
 if p.STA_Choice  == 2 % subtract mean raw stim
     if p.Time_Choice == 1 || p.Mean_Stim_Choice  == 1 % stimulus frames || Calc from stim frames
         p.Num_Raw_Stim = p.stim_frames - p.Num_STE_bins + 1;
         % Total number of raw stimuli displayed
     elseif p.Time_Choice == 2                       % define own time grid
-        p.Num_Raw_Stim = ceil((last_trig_time_trunc - first_trig_time + stim_int - STE_int)/(STE_int/p.Num_STE_bins)) + 1; % PAR Mod 27,08,2020 'last_trig_time' --> 'last_trig_time_trunc'
+        p.Num_Raw_Stim = ceil((last_trig_time_trunc -...
+            first_trig_time + stim_int - STE_int)/(STE_int/p.Num_STE_bins)) + 1; % PAR Mod 27,08,2020 'last_trig_time' --> 'last_trig_time_trunc'
         % This is the total time over which stimuli are played 'last_trig_time-first_trig_time+stim_int'
         % minus the length of an STE 'STE_int' divided by the time between time
         % samples 'STE_int/p.Num_STE_bins' rounded upwards to the nearest integer, can times 10 to try to
@@ -459,7 +464,8 @@ if p.STA_Choice  == 2 % subtract mean raw stim
         % the first stimulus before shifting the window.
         % 111.208542 seconds for model 1 without *10 so do this o/w takes too
         % long.
-        p.Num_Raw_Stim_t_vec = linspace(first_trig_time + STE_int,last_trig_time_trunc + stim_int,p.Num_Raw_Stim); % PAR Mod 27,08,2020 'last_trig_time' --> 'last_trig_time_trunc'
+        p.Num_Raw_Stim_t_vec = linspace(first_trig_time +...
+            STE_int,last_trig_time_trunc + stim_int,p.Num_Raw_Stim); % PAR Mod 27,08,2020 'last_trig_time' --> 'last_trig_time_trunc'
     end
 end
 
@@ -489,7 +495,6 @@ set(gcf,'color','w');
 
 h = waitbar(0,'Batch nr: ');
 % for bb = 1:batch_nr
-Kernel_location = strings(stx_before,2);
 for bb = 1:batch_nr
     waitbar(bb/batch_nr,h,[num2str(bb),' of ', batch_nr]);
 %Initiate the batch    
@@ -497,7 +502,7 @@ spiketimestamps = load_spiketimestamps_app (savepath, add_info,...
     'cell_subset',[batch_begins(bb),batch_ends(bb)]);
 cell_indices_temp = cell_indices(batch_begins(bb):batch_ends(bb));
 
-%Quality Check
+%Quality Check %Possible usefull?? maybe make this Gui element
 
 % right_indices = quality_check_spikes(spiketimestamps,10); %This needs to be 
 % %tested further;
@@ -507,13 +512,13 @@ spiketimestamps = spiketimestamps - noise_begin_s;
 %spiketimestamps(:,~any(~isnan(spiketimestamps))) = [];
 
 stx = size(spiketimestamps,2);
-sty = size(spiketimestamps,1);  
+%sty = size(spiketimestamps,1);  
 
 %cell_indices_temp = cell_indices_temp(1,right_indices);
     
 %% Call RF Identification Function
 % MEA data: stimulus_array := 40 rows, 40 columns,6000 frames, 4 colours
-a = 1;
+%a = 1;
 %RF_Ident = cell(stx,1);
 
 if p.RF_Ident_Meth_vec(1) == 1 % STA-SD method
@@ -522,6 +527,7 @@ if p.RF_Ident_Meth_vec(1) == 1 % STA-SD method
         for i = 1:p.Spectral_Dim
             p.mean_raw_stim_arr(:,:,:,i) = mean_raw_stim_SpaceTime_fn_v2(stimulus_arr(:,:,:,i),trig_times_vec_trunc,p); % PAR Mod 27,08,2020 was 'mean_raw_stim_SpaceTime_fn' and 'trig_times_vec'
         end
+      
     end
 end
 
@@ -532,6 +538,7 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
     
     parfor i = 1:stx % for/parfor
         i
+        
         settings = add_info;  
         p_par = p;
         trig_times_vec_par = trig_times_vec; %@mars: added this declaration
@@ -551,10 +558,12 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
         spike_times_vec_loop(isnan(spike_times_vec_loop)) = []; % spiketimestamps(~isnan(spiketimestamps(:,Cell_Choice)),Cell_Choice);
         spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop>(first_trig_time + min_start_int));
         %spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
-        if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (nr_trig_last_repeat == 0)  % PAR Mod 17,09,2020 (whole if statement, replaces 'spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));')
+        if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (nr_trig_last_repeat == 0)  
+            % PAR Mod 17,09,2020 (whole if statement, replaces 'spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));')
             spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
         else % Num_Trig_Final_NoiseChunk < p.Num_STE_bins + 1
-            spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(trig_times_vec(p.stim_frames*(p.Num_FNoise_rep_ceil-1)) + min_end_int));
+            spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<...
+                (trig_times_vec(p.stim_frames*(p.Num_FNoise_rep_ceil-1)) + min_end_int));
         end
         
         
@@ -577,21 +586,27 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                     
                     for k = 1:frame_end_loop
                         if (k < frame_end_loop) || (j < p_par.Num_FNoise_rep_ceil)
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec_par((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k + 1)));
+                            indices_loop = find((spike_times_vec_loop>...
+                                trig_times_vec_par((j-1)*p_par.stim_frames + k))&&...
+                                (spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k + 1)));
                             a_loop      = trig_times_vec_par(k);
                             b_loop      = trig_times_vec_par(k+1);
                             a_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k + 1);
                             %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         else % (k == frame_end_loop) && (j == p.Num_FNoise_rep_ceil) % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec_par((j-1)*p_par.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int));
+                            indices_loop = find((spike_times_vec_loop>...
+                                trig_times_vec_par((j-1)*p_par.stim_frames + k))&&...
+                                (spike_times_vec_loop<trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int));
                             a_loop      = trig_times_vec_par(k);
                             b_loop      = trig_times_vec_par(k+1);
                             a_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec_par((j-1)*p_par.stim_frames + k) + min_end_int;
                             %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                         end
-                        spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
+                        spike_times_vec_loop(indices_loop) = a_loop +...
+                            (spike_times_vec_loop(indices_loop) - a_dash_loop)*...
+                            (b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
                     end
                     
                 end
@@ -604,19 +619,36 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                 b_loop      = trig_times_vec(2);
                 a_dash_loop = trig_times_vec(p.Num_trigs) + stim_int;
                 b_dash_loop = trig_times_vec(p.Num_trigs) + min_end_int;
-                spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                spike_times_vec_loop(indices_loop) = a_loop +...
+                    (spike_times_vec_loop(indices_loop) - a_dash_loop)*...
+                    (b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                 
             else % If there are gaps between (any) frozen noise chuncks
                 
-                if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (nr_trig_last_repeat == 0) % PAR Mod 17,09,2020 (if statement is new, but first for loop it contains was here originally)
-                    for j = 1:p.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
-                        spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec(j*p.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
-                    end
-                    
+                 if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (Num_Trig_Final_NoiseChunk == 0) % PAR Mod 17,09,2020 (if statement is new, but first for loop it contains was here originally)
+                        for j = 1:p.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
+                            if p.Time_Choice == 1 % stimulus frames % PAR Mod 09,10,2020 (if statement is new, but first for loop it contains was here originally)
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    (trig_times_vec(j*p.stim_frames) + min_end_int))&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
+                            else % p.Time_Choice == 2 % own time grid
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    trig_times_vec(j*p.stim_frames) + min_end_int)&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+1)+STE_int)) = [];
+                            end
+                        end
                 elseif p.Num_FNoise_rep_ceil>2 % still need to remove spike between earlier chunks, priveded there were more than 2 originally
-                    for j = 1:p.Num_FNoise_rep_ceil-2 % remove spikes with stimulus windows that fall between the noise chunks
-                        spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec(j*p.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
-                    end
+                     for j = 1:p.Num_FNoise_rep_ceil-2 % remove spikes with stimulus windows that fall between the noise chunks
+                            if p.Time_Choice == 1 % stimulus frames
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    (trig_times_vec(j*p.stim_frames) + min_end_int))&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
+                            else % p.Time_Choice == 2 % own time grid
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    trig_times_vec(j*p.stim_frames) + min_end_int)&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+1)+STE_int)) = [];
+                            end
+                      end
                 end
                 
                 for j = 2:p_par.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
@@ -630,14 +662,16 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                     for k = 1:frame_end_loop+1
                         if k<frame_end_loop % frame_end_loop<p.stim_frames
                             
-                            indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p_par.stim_frames + k)).*(spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
+                            indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p_par.stim_frames + k)).*...
+                                (spike_times_vec_loop<trig_times_vec((j-1)*p_par.stim_frames + k + 1)));
                             a_loop      = trig_times_vec(k);
                             b_loop      = trig_times_vec(k+1);
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
                             b_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k + 1);
                             %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                        elseif  k==frame_end_loop % No end time is given for the last frame so have to specify differently % PAR Mod 17,09,2020 (was 'else')
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int)); % PAR Mod 17,09,2020 (& not &&)
+                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&...
+                                (spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int)); % PAR Mod 17,09,2020 (& not &&)
                             a_loop      = trig_times_vec(k);
                             b_loop      = trig_times_vec(k) + stim_int; % PAR Mod 17,09,2020 (trig_times_vec(k) + stim_int not trig_times_vec(k+1))
                             a_dash_loop = trig_times_vec((j-1)*p_par.stim_frames + k);
@@ -658,9 +692,11 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
                                 a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k-1) + stim_int;
                                 b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k-1) + min_end_int;
                             end
-                             spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
+                                                     
                         end    
-                                        
+                        spike_times_vec_loop(indices_loop) = a_loop +...
+                            (spike_times_vec_loop(indices_loop) - a_dash_loop)*...
+                            (b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)               
                         
                     end
                     
@@ -674,7 +710,8 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
         length_spike_times_loop   = length(spike_times_vec_loop); % To allow parfor
         
         %RF_Ident{i} = RF_Ident_fn_v5(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p_par); % PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
-        RF_Ident(i).RF_results = RF_Ident_fn_v6(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).RF_results =...
+            RF_Ident_fn_v6(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
         RF_Ident(i).cell_idx = cell_indices_temp(i);
         
         RF_Ident(i).add_info = settings.settings.kernel_new;
@@ -709,86 +746,143 @@ else %  Parpool == 2 % Parpool off
         spike_times_vec_loop      = spike_times_vec_loop(spike_times_vec_loop<(last_trig_time + min_end_int));
         
         if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement)
-            
-            if sum(inter_noise_int_vec <= max_trig_int) == p.Num_FNoise_rep_ceil-1 % If the frozen noise repeates w/o a gap
                 
-                % No need to remove further spikes in this case
-                
-                for j = 2:p.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
+                if sum(inter_noise_int_vec <= max_trig_int) == p.Num_FNoise_rep_ceil-1 % If the frozen noise repeates w/o a gap
                     
-                    if j==p.Num_FNoise_rep_ceil
-                        frame_end_loop = p.Num_trigs - p.stim_frames*(p.Num_FNoise_rep_ceil-1);
-                    else
-                        frame_end_loop = p.stim_frames;
+                    % No need to remove further spikes in this case
+                    
+                    for j = 2:p.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
+                        
+                        if j==p.Num_FNoise_rep_ceil
+                            frame_end_loop = p.Num_trigs - p.stim_frames*(p.Num_FNoise_rep_ceil-1);
+                        else
+                            frame_end_loop = p.stim_frames;
+                        end
+                        
+                        for k = 1:frame_end_loop
+                            if (k < frame_end_loop) || (j < p.Num_FNoise_rep_ceil)
+                                indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p.stim_frames + k))&...
+                                    (spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k + 1))); % PAR Mod 09,10,2020 (changed first inequality '>' to '>=')
+                                a_loop      = trig_times_vec(k);
+                                b_loop      = trig_times_vec(k+1);
+                                a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
+                                b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k + 1);
+                                %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved outside of if statement)
+                            else % (k == frame_end_loop) && (j == p.Num_FNoise_rep_ceil) % No end time is given for the last frame so have to specify differently
+                                indices_loop = find((spike_times_vec_loop>=trig_times_vec((j-1)*p.stim_frames + k))&...
+                                    (spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int)); % PAR Mod 09,10,2020 (changed first inequality '>' to '>=')
+                                a_loop      = trig_times_vec(k);
+                                b_loop      = trig_times_vec(k+1);
+                                a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
+                                b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k) + stim_int;
+                                %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved outside of if statement)
+                            end
+                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) -...
+                                a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
+                        end
                     end
+                    % Map spike in interval after last stimulus window % PAR Mod 17,09,2020 (everything from here to the next 'else' is new)
+                    indices_loop = find((spike_times_vec_loop>=trig_times_vec(p.Num_trigs) + stim_int)&...
+                        (spike_times_vec_loop<trig_times_vec(p.Num_trigs) + min_end_int)); % PAR Mod 09,10,2020 (changed first inequality '>' to '>=')
+                    a_loop      = trig_times_vec(Num_Trig_Final_NoiseChunk+1); % (NB: If last chunck is full then Num_Trig_Final_NoiseChunk = 0)
+                    b_loop      = trig_times_vec(Num_Trig_Final_NoiseChunk+2); % (NB: If last chunck is full then Num_Trig_Final_NoiseChunk = 0)
+                    a_dash_loop = trig_times_vec(p.Num_trigs) + stim_int;
+                    b_dash_loop = trig_times_vec(p.Num_trigs) + min_end_int;
+                    spike_times_vec_loop(indices_loop) = a_loop +...
+                        (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
                     
-                    for k = 1:frame_end_loop
-                        if (k < frame_end_loop) || (j < p.Num_FNoise_rep_ceil)
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k + 1)));
-                            a_loop      = trig_times_vec(k);
-                            b_loop      = trig_times_vec(k+1);
-                            a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
-                            b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k + 1);
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
-                        else % (k == frame_end_loop) && (j == p.Num_FNoise_rep_ceil) % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int));
-                            a_loop      = trig_times_vec(k);
-                            b_loop      = trig_times_vec(k+1);
-                            a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
-                            b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k) + stim_int;
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                else % If there are gaps between (any) frozen noise chuncks
+                    
+                    if (nr_trig_last_repeat >= p.Num_STE_bins + 1) || (Num_Trig_Final_NoiseChunk == 0) % PAR Mod 17,09,2020 (if statement is new, but first for loop it contains was here originally)
+                        for j = 1:p.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
+                            if p.Time_Choice == 1 % stimulus frames % PAR Mod 09,10,2020 (if statement is new, but first for loop it contains was here originally)
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    (trig_times_vec(j*p.stim_frames) + min_end_int))&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
+                            else % p.Time_Choice == 2 % own time grid
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    trig_times_vec(j*p.stim_frames) + min_end_int)&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+1)+STE_int)) = [];
+                            end
+                        end
+                    elseif p.Num_FNoise_rep_ceil>2 % still need to remove spike between earlier chunks, priveded there were more than 2 originally
+                        for j = 1:p.Num_FNoise_rep_ceil-2 % remove spikes with stimulus windows that fall between the noise chunks
+                            if p.Time_Choice == 1 % stimulus frames
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    (trig_times_vec(j*p.stim_frames) + min_end_int))&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
+                            else % p.Time_Choice == 2 % own time grid
+                                spike_times_vec_loop((spike_times_vec_loop>...
+                                    trig_times_vec(j*p.stim_frames) + min_end_int)&...
+                                    (spike_times_vec_loop<trig_times_vec(j*p.stim_frames+1)+STE_int)) = [];
+                            end
                         end
                     end
                     
-                end
-                
-            else % If there are gaps between (any) frozen noise chuncks
-                
-                for j = 1:p.Num_FNoise_rep_ceil-1 % remove spikes with stimulus windows that fall between the noise chunks
-                    spike_times_vec_loop((spike_times_vec_loop>(trig_times_vec(j*p.stim_frames) + min_end_int))&(spike_times_vec_loop<trig_times_vec(j*p.stim_frames+p.Num_STE_bins+1))) = [];
-                end
-                
-                for j = 2:p.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
-                    
-                    if j==p.Num_FNoise_rep_ceil
-                        frame_end_loop = p.Num_trigs - p.stim_frames*(p.Num_FNoise_rep_ceil-1);
-                    else
-                        frame_end_loop = p.stim_frames;
-                    end
-                    
-                    for k = 1:frame_end_loop
-                        if k<frame_end_loop % frame_end_loop<p.stim_frames
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k + 1)));
-                            a_loop      = trig_times_vec(k);
-                            b_loop      = trig_times_vec(k+1);
-                            a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
-                            b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k + 1);
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
-                        else % k==frame_end_loop % frame_end_loop==p.stim_frames % No end time is given for the last frame so have to specify differently
-                            indices_loop = find((spike_times_vec_loop>trig_times_vec((j-1)*p.stim_frames + k))&&(spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int));
-                            a_loop      = trig_times_vec(k);
-                            b_loop      = trig_times_vec(k+1);
-                            a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
-                            b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k) + stim_int;
-                            spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop);
+                    for j = 2:p.Num_FNoise_rep_ceil % map spikes in repeated stimulus chunks to original chunk
+                        
+                        if j==p.Num_FNoise_rep_ceil
+                            frame_end_loop = p.Num_trigs - p.stim_frames*(p.Num_FNoise_rep_ceil-1);
+                        else
+                            frame_end_loop = p.stim_frames;
                         end
+                        
+                        for k = 1:frame_end_loop+1 % PAR Mod 17,09,2020 (was 1:frame_end_loop)
+                            if k<frame_end_loop % frame_end_loop<p.stim_frames
+                                indices_loop = find((spike_times_vec_loop>=...
+                                    trig_times_vec((j-1)*p.stim_frames + k))&...
+                                    (spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k + 1))); % PAR Mod 09,10,2020 (changed first inequality '>' to '>=') % PAR Mod 17,09,2020 (& not &&)
+                                a_loop      = trig_times_vec(k);
+                                b_loop      = trig_times_vec(k+1);
+                                a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
+                                b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k + 1);
+                                %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved outside of if statement)
+                            elseif  k==frame_end_loop % No end time is given for the last frame so have to specify differently % PAR Mod 17,09,2020 (was 'else')
+                                indices_loop = find((spike_times_vec_loop>=...
+                                    trig_times_vec((j-1)*p.stim_frames + k))&...
+                                    (spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k) + stim_int)); % PAR Mod 09,10,2020 (changed first inequality '>' to '>=') % PAR Mod 17,09,2020 (& not &&)
+                                a_loop      = trig_times_vec(k);
+                                b_loop      = trig_times_vec(k) + stim_int; % PAR Mod 17,09,2020 (trig_times_vec(k) + stim_int not trig_times_vec(k+1))
+                                a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k);
+                                b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k) + stim_int;
+                                %spike_times_vec_loop(indices_loop) = a_loop + (spike_times_vec_loop(indices_loop) - a_dash_loop)*(b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved outside of if statement)
+                            else % k==frame_end_loop+1 % PAR Mod 17,09,2020 (everything between this else statement and the end of the if statement is new)
+                                indices_loop = find((spike_times_vec_loop>=...t
+                                    rig_times_vec((j-1)*p.stim_frames + k-1) + stim_int)&...
+                                    (spike_times_vec_loop<trig_times_vec((j-1)*p.stim_frames + k-1) + min_end_int)); % PAR Mod 09,10,2020 (changed first inequality '>' to '>=')
+                                if frame_end_loop == p.stim_frames
+                                    a_loop      = trig_times_vec(p.stim_frames) + stim_int;
+                                    b_loop      = trig_times_vec(p.stim_frames) + min_end_int;
+                                    a_dash_loop = trig_times_vec(j*p.stim_frames) + stim_int;
+                                    b_dash_loop = trig_times_vec(j*p.stim_frames) + min_end_int;
+                                else %frame_end_loop < p.stim_frames
+                                    a_loop      = trig_times_vec(k);
+                                    b_loop      = trig_times_vec(k+1);
+                                    a_dash_loop = trig_times_vec((j-1)*p.stim_frames + k-1) + stim_int;
+                                    b_dash_loop = trig_times_vec((j-1)*p.stim_frames + k-1) + min_end_int;
+                                end
+                            end
+                            spike_times_vec_loop(indices_loop) = a_loop +...
+                                (spike_times_vec_loop(indices_loop) - a_dash_loop)*...
+                                (b_loop - a_loop)/(b_dash_loop - a_dash_loop); % PAR Mod 17,09,2020 (moved from inside if statement above)
+                        end
+                        
                     end
                     
                 end
                 
-            end
-            
         end
         
         %p.length_spike_times      = length(spike_times_vec_loop);
         length_spike_times_loop   = length(spike_times_vec_loop); % To allow parfor
         
-        RF_Ident(i).RF_results = RF_Ident_fn_v6(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).RF_results = RF_Ident_fn_v7(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
         RF_Ident(i).cell_idx = cell_indices_temp(i);
         
         %Add info if first cell
         
         RF_Ident(i).add_info = add_info.settings.kernel_new;
+        
         
            
         
@@ -812,7 +906,10 @@ end
 %repective other QC Type is choosen.
 
 
-
+for rf = 1:length(RF_Ident)
+   RF_overview(rf).p = p; 
+    
+end
 
 
 if add_info.settings.kernel_new.SS_Std 
@@ -1041,7 +1138,7 @@ elseif add_info.settings.kernel_new.SC_Std
 
 elseif add_info.settings.kernel_new.SC_CI
     
-    subfoldername = ['RF_Ident_SC_CI_Thr_',num2str(add_info.settings.kernel_new.SC_CI)];
+    subfoldername = ['RF_Ident_SC_CI_Thr_',num2str(add_info.settings.kernel_new.SC_CI_Lower)];
     save_folder = sf_organizer(stim_idx,savepath,'subfoldername',subfoldername);
     f = waitbar(0,'Saving files, file:');
     
@@ -1105,6 +1202,8 @@ elseif add_info.settings.kernel_new.SC_CI
     end
 end
    
+
+close(f)
 
 clear RF_Ident
 clear RF_overview

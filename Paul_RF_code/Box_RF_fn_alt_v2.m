@@ -34,7 +34,7 @@ else
     max_RF_row = p.stim_rows;
 end
 
-if max_RF_col_temp - p.RF_layers <= p.stim_columns - 1
+if max_RF_col_temp - p.RF_layers < p.stim_columns - 1
     max_RF_col = max_RF_col_temp + p.RF_layers;
 else
     max_RF_col = p.stim_columns;

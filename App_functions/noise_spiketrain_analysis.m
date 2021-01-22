@@ -35,6 +35,26 @@ locs_begin_idx = ones(1,length(locs_begin_idx_temp)+1);
 locs_begin_idx(2:end) = locs_begin_idx_temp;
 %Get it in seconds
 locs_begin_s = (locs_begin_idx+noise_begin_fr)/S.Ch.SamplingFrequency;
+%% Load actual stimulus sequence (to see correlations between different colours)
+%Check how many frames per repeat
+begin_second_locs = find(locs_begin,1,'first');
+nr_frames = begin_second_locs +1;
+stimulus_arr = load_noise_from_hdf5(string(add_info.settings.location.noise),...
+    true,1,double(nr_frames));
+nr_pixel = size(stimulus_arr,2);
+
+%lets estimate the overall luminance (nr of active pixel per trigger)
+nr_active_pixel = squeeze(sum(stimulus_arr,2));
+nr_active_pixel_sm = movmean(nr_active_pixel,10);
+nr_active_pixel_sm_relative = nr_active_pixel_sm/nr_pixel;
+%Calculate stimulus frequency
+noise_interval = median(locs_diff_norm)/S.Ch.SamplingFrequency;
+
+
+
+
+
+
 
 %% Load spikes 
 
@@ -46,18 +66,22 @@ spiketimestamps = load_spiketimestamps_app(savepath,chunk_info,[cell_idx cell_id
 %spiketimestamps = spiketimestamps - add_info.stim_begin;
 
 
+
 spike_cell = squeeze(spiketimestamps(:,1,:));
 for ii = 1:size(spike_cell,2)
     spike_cell(:,ii) = spike_cell(:,ii)-locs_begin_s(ii);
         
 end
+
+%% Plot
 figure;
-ax1 = subplot(2,1,1);
+ax1 = subplot(3,1,1);
 plot_raster(spike_cell,'ax',ax1);
 title(['Cell ',num2str(cell_idx)])
 ylabel("Repeats")
 set(ax1,'xticklabel',[])
-ax2 = subplot(2,1,2);
+ax2 = subplot(3,1,2);
+hold on
 title("Stimulus trace")
 xvalues = (0:1/S.Ch.SamplingFrequency:(locs_end_s(1)-locs_begin_s(1)));
 trigger_plot = trigger_ch(locs_begin_idx(1):locs_end_idx(1));
@@ -69,9 +93,25 @@ if length(xvalues) < length(trigger_plot)
 end
 
 plot(xvalues,trigger_plot,'k')
-xlabel("Time in s")
 ylabel("Trigger signal, a.u.")
-linkaxes([ax1,ax2],'x')
+
+
+ax3 = subplot(3,1,3);
+hold on
+title("Stimulus mean luminance")
+xvalues = (0:noise_interval:noise_interval*nr_frames-noise_interval);
+colour = {'red','green','blue','magenta'};
+for ii = 1:size(nr_active_pixel_sm,2)
+    plot(xvalues,nr_active_pixel_sm_relative(:,ii),'Color',colour{1,ii})
+end
+ylabel("Proportion of active channel by colour, a.u.")
+
+
+xlabel("Time in s")
+
+
+
+linkaxes([ax1,ax2,ax3],'x')
 out = 1;
 
 

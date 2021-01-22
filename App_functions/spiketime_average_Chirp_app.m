@@ -15,16 +15,10 @@ stim_idx = add_info.stim_idx;
  Raster_spikes = S.Raster_spikes;
  clear S
  
- max_nr_bins = max([Bins_info.nr_bins]);
- std_nr_bins = std([Bins_info.nr_bins]);
+ %Find the two different nr of bins
+ nr_bins_unique = unique([Bins_info.nr_bins]);
  
- if std_nr_bins > 2
-     warning...
-         ("Time intervals of stimulus have a high standard devitation, check trigger channel maybe?");
- end
  
-
-
  ep_idx = (1:1:nr_colours);
  nr_repeats = ceil(length(Bins_info)/nr_colours);
  ep_idx = repmat(ep_idx,1,nr_repeats); %Get indices for all episodes relative to nr of repeats
@@ -32,33 +26,38 @@ stim_idx = add_info.stim_idx;
 
  nr_ep = length(Bins_info);
  ep_idx = ep_idx(1:nr_ep); %Cut of overlapping episodes
- 
- 
- 
+  
  nr_cells = length(Bined_spikes);
  
-
+ %Preallocate
+ for ii = 1:nr_cells
+     Chirp_average(ii).traces = zeros(int64(nr_bins_unique(2)),nr_colours);
+     
+ end
+ 
+ 
  %Average over episodes
 for kk = 1:nr_cells
      for ii = 1:nr_colours
           ep_logical = ep_idx == ii;
-          nr_repeats = size(Raster_spikes(1).spikes(:,ep_logical),2);
+       
        try
+           nr_repeats = size(Raster_spikes(1).spikes(:,ep_logical),2);
            %Extract bined traces of specific episode for given cell
-           cell_bins = Bined_spikes(kk).histcounts(:,ep_logical);
-           FFF_average(kk).traces(:,ii) = nanmean(cell_bins,2);
-           FFF_average(kk).cell_idx = cell_indices(kk);
+           cell_bins = Bined_spikes(kk).histcounts(1:nr_bins_unique(ii),ep_logical);
+           Chirp_average(kk).traces(1:nr_bins_unique(ii),ii) = nanmean(cell_bins,2);
+           Chirp_average(kk).cell_idx = cell_indices(kk);
            
            %Sort spikes for raster plot 
-           FFF_average(kk).spikes(:,1:nr_repeats,ii) = Raster_spikes(kk).spikes(:,ep_logical)...
+           Chirp_average(kk).spikes(:,1:nr_repeats,ii) = Raster_spikes(kk).spikes(:,ep_logical)...
                +Bins_info(ii).hist_bins(1)-add_info.stim_begin;
            
            
            %Calculate quality criteria for responses
-           var_of_mean = nanvar(FFF_average(kk).traces(:,ii));
+           var_of_mean = nanvar(Chirp_average(kk).traces(:,ii));
            mean_of_var = nanmean(nanvar(cell_bins,[],1));
-           FFF_average(kk).stats(:,ii) = var_of_mean/mean_of_var;
-           FFF_average(kk).stats_max = nanmax(FFF_average(kk).stats(:,ii));
+           Chirp_average(kk).stats(:,ii) = var_of_mean/mean_of_var;
+           Chirp_average(kk).stats_max = nanmax(Chirp_average(kk).stats(:,ii));
             
        catch
            continue
@@ -75,8 +74,8 @@ end
 a = 1;
 for ii = 1:nr_cells
     try
-    if isempty(FFF_average(a).cell_idx)
-        FFF_average(a) = [];
+    if isempty(Chirp_average(a).cell_idx)
+        Chirp_average(a) = [];
     else
         a = a+1;
     end
@@ -84,35 +83,35 @@ for ii = 1:nr_cells
         continue
     end
 end
- nr_cells_new = length(FFF_average);
+ nr_cells_new = length(Chirp_average);
 %Save averaged traces
-out = sf_organizer(stim_idx,savepath,'variable_name','FFF_average','variable',FFF_average);
+out = sf_organizer(stim_idx,savepath,'variable_name','Chirp_average','variable',Chirp_average);
  
  
 
  
 %% Create stat figures
 overview_FFF = figure;
-bar([FFF_average.cell_idx],[FFF_average.stats_max],'k');
+bar([Chirp_average.cell_idx],[Chirp_average.stats_max],'k');
 title("Quality of FFF responses")
 ylabel("Quality Index")
 xlabel("Cell index")
 hline(0.3,'-',"Threshold")
-sf_organizer(add_info.stim_idx,savepath,'variable_name','overview_FFF',...
+sf_organizer(add_info.stim_idx,savepath,'variable_name','overview_Chirp',...
     'variable',overview_FFF);
 
 %Collect quality criteria data
-FFF_stats = NaN(nr_colours,length(FFF_average));
+FFF_stats = NaN(nr_colours,length(Chirp_average));
 for ii = 1:nr_cells_new
     try
-        FFF_stats(:,ii) = FFF_average(ii).stats;
+        FFF_stats(:,ii) = Chirp_average(ii).stats;
     catch
         continue
     end
     
 end
 
-detail_stats_FFF = heatbar([FFF_average.cell_idx],FFF_stats);
+detail_stats_FFF = heatbar([Chirp_average.cell_idx],FFF_stats);
 
 ynames = {'UV','Blue','Green','Red'};
 set(gca,'ytick',[1,2,3,4],'yticklabel',ynames);
@@ -130,21 +129,21 @@ sf_organizer(add_info.stim_idx,savepath,'variable_name','detail_stats_FFF',...
 
 
 %Plot all traces as heatbar
-total_bins = int64(max_nr_bins*nr_colours);
-FFF_traces = NaN(nr_cells_new,total_bins);
+total_bins = int64(nr_bins_unique(2));
+Chirp_traces = NaN(nr_cells_new,total_bins);
 for ii = 1:nr_cells_new
    try
-   FFF_trace = FFF_average(ii).traces;
-   FFF_trace = FFF_trace/nanmax(FFF_trace,[],'all');
-   FFF_traces(ii,:) = reshape(FFF_trace,[1,total_bins]);
+   Chirp_trace = Chirp_average(ii).traces(:,2);
+   Chirp_trace = Chirp_trace/nanmax(Chirp_trace,[],'all');
+   Chirp_traces(ii,:) = reshape(Chirp_trace,[1,total_bins]);
    catch
        continue
    end
 end
 binsize = Bined_spikes(1).bins_info.binsize;
-stim_duration = max_nr_bins*binsize;
-x_values = (binsize:binsize:stim_duration*nr_colours);
-all_traces_plot = heatbar(x_values,FFF_traces,'Y',[FFF_average.cell_idx],...
+stim_duration = nr_bins_unique(2)*binsize;
+x_values = (binsize:binsize:stim_duration);
+all_traces_plot = heatbar(x_values,Chirp_traces,'Y',[Chirp_average.cell_idx],...
     'gap', false);
 
 title("All traces heatmap")

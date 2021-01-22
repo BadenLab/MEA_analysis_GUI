@@ -140,19 +140,20 @@ nr_boxes(2) = str2double(nr_boxes_temp{2});
 nr_boxes = nr_boxes(1)*nr_boxes(2);
 
 %load the data from the hdf5 file
-hdf5_file = 'D:\Data_MEA_Setup\QDSpy\Stimuli\zebrafish_04_10\waves\Noise.h5';
-%hdf5_file = add_info.settings.location.noise;
+%hdf5_file = 'D:\Data_MEA_Setup\QDSpy\Stimuli\zebrafish_04_10\waves\Noise.h5';
+
+hdf5_file = add_info.settings.location.noise;
 hdf5_start = [1 1];
-hdf5_count = [locs_per_frozen nr_boxes];
+hdf5_count = [nr_boxes locs_per_frozen];
 
 
 %nr_frozen
-Colour_noise_temp = zeros(uint16(hdf5_count));
+Colour_noise_temp = zeros(uint16(hdf5_count(2)),uint16(hdf5_count(1)));
 
-Colour_noise_temp(:,:,1) = h5read(hdf5_file, '/UV_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,2) = h5read(hdf5_file, '/Blue_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,3) = h5read(hdf5_file, '/Green_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,4) = h5read(hdf5_file, '/Red_Noise', hdf5_start, hdf5_count);
+Colour_noise_temp(:,:,1) = (h5read(hdf5_file, '/UV_Noise', hdf5_start, hdf5_count))';
+Colour_noise_temp(:,:,2) = (h5read(hdf5_file, '/Blue_Noise', hdf5_start, hdf5_count))';
+Colour_noise_temp(:,:,3) = (h5read(hdf5_file, '/Green_Noise', hdf5_start, hdf5_count))';
+Colour_noise_temp(:,:,4) = (h5read(hdf5_file, '/Red_Noise', hdf5_start, hdf5_count))';
 
 
 %Multiply this by the time the noise was shown

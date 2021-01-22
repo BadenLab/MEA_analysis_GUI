@@ -33,6 +33,7 @@ clear S
 cell_idx = [RF_overview.cell_idx];
 RF_overview = rmfield(RF_overview,'cell_idx');
 RF_overview = rmfield(RF_overview,'file');
+RF_overview = rmfield(RF_overview,'p');
 %convert to array
 RF_overview = reshape(struct2array(RF_overview),...
     numel(fieldnames(RF_overview)),[]);

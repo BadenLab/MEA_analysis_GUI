@@ -4,22 +4,34 @@
 % clear all;
 % clc;
 % load data_RF_Ident_CL3_MChick_1_Cell_1to5000_v_1.mat;
-
+function out = CL_Plotting_RF_v2 (savepath, add_info)
 %% Plotting options
+
+
+%% Global variables
+
 
 % Choose whether to use B&W or coloured heatmaps and histograms
 % 1 = B&W;
 % 2 = coloured.
-Heat_Map_Colour_Choice = 1;
-Hist_Colour_Choice     = 2;
+if add_info.settings.kernel_new.plot_all.heat_colour
+    Heat_Map_Colour_Choice = 2;
+elseif add_info.settings.kernel_new.plot_all.heat_gray
+    Heat_Map_Colour_Choice = 1;
+end
+if add_info.settings.kernel_new.plot_all.hist_heat_colour
+    Hist_Colour_Choise = 2;
+elseif add_info.settings.kernel_new.plot_all.hist_heat_gray
+    Hist_Colour_Choice = 1;
+end
 
 % Choose whether to align histogram bins
 % 1: Yes
 % 2: No
-Hist_Bin_Align_Choice = 1;
+Hist_Bin_Align_Choice = add_info.settings.kernel_new.plot_all.alignhisto;
 
 % Allow for 2 colour cases: monochromatic and tetrachromatic (RGBUV)
-Spectral_Names = {'R','G','B','UV'};
+Spectral_Names = {'R','G','B','UV'}; %mars: Has to be not hard coded
 
 colorMap_arr        = NaN(256,3,4);
 colorMap_arr(:,:,1) = [linspace(0,1,256)', zeros(256,2)];                     % Red
@@ -28,28 +40,76 @@ colorMap_arr(:,:,3) = [zeros(256,2), linspace(0,1,256)'];                     % 
 colorMap_arr(:,:,4) = [linspace(0,1,256)', zeros(256,1), linspace(0,1,256)']; % UV
 %colorMapBlack      = [0 0 0];
 
+%% Load the dataset information
 
-%% Extract Data to Plot
+%Check how many folder shall be plotted
+for ff = 1:length(add_info.settings.kernel_new.folderplot)
 
-if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
-    
-    if p.RF_Type(1) == 1 % Box
-        
+
+if ~isfield(add_info.settings.kernel_new,'folderplot')
+    error('No analysis folder selected, do that first an run this script afterwards')
+end
+plot_folder = add_info.settings.kernel_new.folderplot{1,ff};
+L = load(findfile_app(add_info.stim_idx,savepath,"RF_overview.mat",'subfolder',plot_folder));
+RF_overview = L.RF_overview;
+clear L
+
+%Check for how many cells a RF has been found
+try
+    true_num_cells = nnz([RF_overview.STASD_ASP_RF]);
+    true_cells_idx = [RF_overview.STASD_ASP_RF] == 1;
+catch
+    true_num_cells = nnz([RF_overview.SC_ASP_RF]);
+    true_cells_idx = [RF_overview.SC_ASP_RF] == 1;
+end
+
+path_to_cells = [RF_overview.file];
+path_to_cells = path_to_cells(1,true_cells_idx);
+true_cells_cell_idx = [RF_overview.cell_idx];
+true_cells_cell_idx = true_cells_cell_idx(1,true_cells_idx);
+
+
+%Recreate RF.Ident cell
+for ii = 1:true_num_cells
+    RF_file = strcat(path_to_cells(1,ii),'.bin');
+    %Now we load the file and transfer it back from binary to matlab
+    %formate
+    fileID = fopen(RF_file,'r');
+    RF_Ident_temp = fread(fileID);
+    fclose(fileID);
+    RF_Ident_temp = hlp_deserialize(RF_Ident_temp);
+    if ii == 1
+        RF_Ident = RF_Ident_temp;
+    else
+        RF_Ident = [RF_Ident,RF_Ident_temp]; %Build a new structure from the ones loaded
     end
     
-    if p.RF_Type(2) == 1     % All Significant Pixels
+end
+%Recreate 'p' variable
+p = RF_overview.p;
+p.Spectral_Dim = 4; %mars: This should be stored in the variable and not be hard coded
+%% Extract Data to Plot
+
+
+if contains(add_info.settings.kernel_new.folderplot{1},'SS')
+    
+%     if p.RF_Type(1) == 1 % Box %mars: not sure why this is here?
+%         
+%     end
+    
+    if add_info.settings.kernel_new.plot_Allpixel   % All Significant Pixels
         
         % Num Spectral and Full RF Pixels
-        Num_STASD_ASP_RF_Pixels_mat     = NaN(True_Num_Cells,p.Spectral_Dim);
-        Num_STASD_ASP_FullRF_Pixels_vec = NaN(True_Num_Cells,1);
-        for i = 1:True_Num_Cells
+        Num_STASD_ASP_RF_Pixels_mat     = NaN(true_num_cells,p.Spectral_Dim);
+        Num_STASD_ASP_FullRF_Pixels_vec = NaN(true_num_cells,1);
+        for i = 1:true_num_cells
             for j = 1:p.Spectral_Dim
-                if ~isempty(RF_Ident{i}.STASD_ASP_Num_RF_pixels{j})
-                    Num_STASD_ASP_RF_Pixels_mat(i,j) = RF_Ident{i}.STASD_ASP_Num_RF_pixels{j};
+                if ~isempty(RF_Ident(i).RF_results.STASD_ASP_Num_RF_pixels{j})
+                    Num_STASD_ASP_RF_Pixels_mat(i,j) = RF_Ident(i).RF_results.STASD_ASP_Num_RF_pixels{j};
                 end
             end
-            if ~isempty(RF_Ident{i}.STASD_ASP_FullRF_Num_pixels)
-                Num_STASD_ASP_FullRF_Pixels_vec(i) = RF_Ident{i}.STASD_ASP_FullRF_Num_pixels;
+            if ~isempty(RF_Ident(i).RF_results.STASD_ASP_FullRF_Num_pixels)
+                Num_STASD_ASP_FullRF_Pixels_vec(i) = RF_Ident(i).RF_results.STASD_ASP_FullRF_Num_pixels;
             end
         end
         Num_STASD_ASP_RF_Pixels_mat(sum(isnan(Num_STASD_ASP_RF_Pixels_mat),2)==p.Spectral_Dim,:)             = []; % Vector with NaN rows removed
@@ -58,40 +118,42 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         
     end
     
-    if p.RF_Type(3) == 1     % Gaussian
+    if add_info.settings.kernel_new.plot_Gauss   % Gaussian
         
         % Num Pixels Spectral and Full RFs
         % Abs Ellipse Area Spectral and Full RFs
         % Major Axis Angle Spectral and Full RFs
         % Axis Eval Ratio Spectral and Full RFs
         % Mean Coords Spectral and Full RFs
-        STASD_Gaus_Num_RF_pixels_mat           = NaN(True_Num_Cells,p.Spectral_Dim);
-        STASD_Gaus_FullRF_Num_pixels_vec       = NaN(True_Num_Cells,1);
-        STASD_Gaus_Abs_Ellipse_Area_mat        = NaN(True_Num_Cells,p.Spectral_Dim);
-        STASD_Gaus_FullRF_Abs_Ellipse_Area_vec = NaN(True_Num_Cells,1);
-        STASD_Gaus_RF_Angle_Major_Axis_mat     = NaN(True_Num_Cells,p.Spectral_Dim);
-        STASD_Gaus_FullRF_Angle_Major_Axis_vec = NaN(True_Num_Cells,1);
-        STASD_Gaus_Axis_eval_Ratio_mat         = NaN(True_Num_Cells,p.Spectral_Dim);
-        STASD_Gaus_FullRF_Axis_eval_Ratio_vec  = NaN(True_Num_Cells,1);
-        STASD_Gaus_Gaussian_mean_arr           = NaN(True_Num_Cells,p.Spectral_Dim,2);
-        STASD_Gaus_FullRF_Gaussian_mean_mat    = NaN(True_Num_Cells,2);
+        STASD_Gaus_Num_RF_pixels_mat           = NaN(true_num_cells,p.Spectral_Dim);
+        STASD_Gaus_FullRF_Num_pixels_vec       = NaN(true_num_cells,1);
+        STASD_Gaus_Abs_Ellipse_Area_mat        = NaN(true_num_cells,p.Spectral_Dim);
+        STASD_Gaus_FullRF_Abs_Ellipse_Area_vec = NaN(true_num_cells,1);
+        STASD_Gaus_RF_Angle_Major_Axis_mat     = NaN(true_num_cells,p.Spectral_Dim);
+        STASD_Gaus_FullRF_Angle_Major_Axis_vec = NaN(true_num_cells,1);
+        STASD_Gaus_Axis_eval_Ratio_mat         = NaN(true_num_cells,p.Spectral_Dim);
+        STASD_Gaus_FullRF_Axis_eval_Ratio_vec  = NaN(true_num_cells,1);
+        STASD_Gaus_Gaussian_mean_arr           = NaN(true_num_cells,p.Spectral_Dim,2);
+        STASD_Gaus_FullRF_Gaussian_mean_mat    = NaN(true_num_cells,2);
 
-        for i = 1:True_Num_Cells
+        for i = 1:true_num_cells
             for j = 1:p.Spectral_Dim
-                if ~isempty(RF_Ident{i}.STASD_Gaus_Num_RF_pixels{j})
-                    STASD_Gaus_Num_RF_pixels_mat(i,j)       = RF_Ident{i}.STASD_Gaus_Num_RF_pixels{j};
-                    STASD_Gaus_Abs_Ellipse_Area_mat(i,j)    = RF_Ident{i}.STASD_Gaus_Abs_Ellipse_Area(j);
-                    STASD_Gaus_RF_Angle_Major_Axis_mat(i,j) = RF_Ident{i}.STASD_Gaus_Angle_Major_Axis(j);
-                    STASD_Gaus_Axis_eval_Ratio_mat(i,j)     = RF_Ident{i}.STASD_Gaus_Axis_eval_Ratio(j);
-                    STASD_Gaus_Gaussian_mean_arr(i,j,:)     = [RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(1),RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(2)];
+                if ~isempty(RF_Ident(i).RF_results.STASD_Gaus_Num_RF_pixels{j})
+                    STASD_Gaus_Num_RF_pixels_mat(i,j)       = RF_Ident(i).RF_results.STASD_Gaus_Num_RF_pixels{j};
+                    STASD_Gaus_Abs_Ellipse_Area_mat(i,j)    = RF_Ident(i).RF_results.STASD_Gaus_Abs_Ellipse_Area(j);
+                    STASD_Gaus_RF_Angle_Major_Axis_mat(i,j) = RF_Ident(i).RF_results.STASD_Gaus_Angle_Major_Axis(j);
+                    STASD_Gaus_Axis_eval_Ratio_mat(i,j)     = RF_Ident(i).RF_results.STASD_Gaus_Axis_eval_Ratio(j);
+                    STASD_Gaus_Gaussian_mean_arr(i,j,:)     = [RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(1),...
+                        RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(2)];
                 end
             end
-            if RF_Ident{i}.STASD_Gaus_FullRF_Num_pixels ~=0
-                STASD_Gaus_FullRF_Num_pixels_vec(i)       = RF_Ident{i}.STASD_Gaus_FullRF_Num_pixels;
-                STASD_Gaus_FullRF_Abs_Ellipse_Area_vec(i) = RF_Ident{i}.STASD_Gaus_FullRF_Abs_Ellipse_Area;
-                STASD_Gaus_FullRF_Angle_Major_Axis_vec(i) = RF_Ident{i}.STASD_Gaus_FullRF_Angle_Major_Axis;
-                STASD_Gaus_FullRF_Axis_eval_Ratio_vec(i)  = RF_Ident{i}.STASD_Gaus_FullRF_Axis_eval_Ratio;
-                STASD_Gaus_FullRF_Gaussian_mean_mat(i,:)  = [RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_mean(1),RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_mean(2)];
+            if RF_Ident(i).RF_results.STASD_Gaus_FullRF_Num_pixels ~=0
+                STASD_Gaus_FullRF_Num_pixels_vec(i)       = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Num_pixels;
+                STASD_Gaus_FullRF_Abs_Ellipse_Area_vec(i) = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Abs_Ellipse_Area;
+                STASD_Gaus_FullRF_Angle_Major_Axis_vec(i) = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Angle_Major_Axis;
+                STASD_Gaus_FullRF_Axis_eval_Ratio_vec(i)  = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Axis_eval_Ratio;
+                STASD_Gaus_FullRF_Gaussian_mean_mat(i,:)  = [RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_mean(1),...
+                    RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_mean(2)];
             end
         end
         STASD_Gaus_Num_RF_pixels_mat_2     = STASD_Gaus_Num_RF_pixels_mat;                                           % Full vector
@@ -111,57 +173,57 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
     
 end
 
-if     p.RF_Ident_Meth_vec(2) == 1 % LC
-    
-    if p.RF_Type(1) == 1 % Box
-        
-    end
-    
-    if p.RF_Type(2) == 1     % All Significant Pixels
-        
-    end
-    
-    if p.RF_Type(3) == 1     % Gaussian
-        
-    end
-    
-end
+% if     p.RF_Ident_Meth_vec(2) == 1 % LC
+%     
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
+%     
+%     if p.RF_Type(2) == 1     % All Significant Pixels
+%         
+%     end
+%     
+%     if p.RF_Type(3) == 1     % Gaussian
+%         
+%     end
+%     
+% end
+% 
+% if     p.RF_Ident_Meth_vec(3) == 1 % MI
+%     
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
+%     
+%     if p.RF_Type(2) == 1     % All Significant Pixels
+%         
+%     end
+%     
+%     if p.RF_Type(3) == 1     % Gaussian
+%         
+%     end
+%     
+% end
 
-if     p.RF_Ident_Meth_vec(3) == 1 % MI
+if contains(add_info.settings.kernel_new.folderplot{1},'SC')
     
-    if p.RF_Type(1) == 1 % Box
-        
-    end
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
     
-    if p.RF_Type(2) == 1     % All Significant Pixels
-        
-    end
-    
-    if p.RF_Type(3) == 1     % Gaussian
-        
-    end
-    
-end
-
-if     p.RF_Ident_Meth_vec(4) == 1 % SC
-    
-    if p.RF_Type(1) == 1 % Box
-        
-    end
-    
-    if p.RF_Type(2) == 1     % All Significant Pixels
+    if add_info.settings.kernel_new.plot_Allpixel % All Significant Pixels
         
         % Num Spectral and Full RF Pixels
-        Num_SC_ASP_RF_Pixels_mat     = NaN(True_Num_Cells,p.Spectral_Dim);
-        Num_SC_ASP_FullRF_Pixels_vec = NaN(True_Num_Cells,1);
-        for i = 1:True_Num_Cells
+        Num_SC_ASP_RF_Pixels_mat     = NaN(true_num_cells,p.Spectral_Dim);
+        Num_SC_ASP_FullRF_Pixels_vec = NaN(true_num_cells,1);
+        for i = 1:true_num_cells
             for j = 1:p.Spectral_Dim
-                if ~isempty(RF_Ident{i}.SC_ASP_Num_RF_pixels{j})
-                    Num_SC_ASP_RF_Pixels_mat(i,j) = RF_Ident{i}.SC_ASP_Num_RF_pixels{j};
+                if ~isempty(RF_Ident(i).RF_results.SC_ASP_Num_RF_pixels{j})
+                    Num_SC_ASP_RF_Pixels_mat(i,j) = RF_Ident(i).RF_results.SC_ASP_Num_RF_pixels{j};
                 end
             end
-            if ~isempty(RF_Ident{i}.SC_ASP_FullRF_Num_pixels)
-                Num_SC_ASP_FullRF_Pixels_vec(i) = RF_Ident{i}.SC_ASP_FullRF_Num_pixels;
+            if ~isempty(RF_Ident(i).RF_results.SC_ASP_FullRF_Num_pixels)
+                Num_SC_ASP_FullRF_Pixels_vec(i) = RF_Ident(i).RF_results.SC_ASP_FullRF_Num_pixels;
             end
         end
         Num_SC_ASP_RF_Pixels_mat(sum(isnan(Num_SC_ASP_RF_Pixels_mat),2)==p.Spectral_Dim,:)             = []; % Vector with NaN rows removed
@@ -177,33 +239,33 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
         % Major Axis Angle Spectral and Full RFs
         % Axis Eval Ratio Spectral and Full RFs
         % Mean Coords Spectral and Full RFs
-        SC_Gaus_Num_RF_pixels_mat           = NaN(True_Num_Cells,p.Spectral_Dim);
-        SC_Gaus_FullRF_Num_pixels_vec       = NaN(True_Num_Cells,1);
-        SC_Gaus_Abs_Ellipse_Area_mat        = NaN(True_Num_Cells,p.Spectral_Dim);
-        SC_Gaus_FullRF_Abs_Ellipse_Area_vec = NaN(True_Num_Cells,1);
-        SC_Gaus_RF_Angle_Major_Axis_mat     = NaN(True_Num_Cells,p.Spectral_Dim);
-        SC_Gaus_FullRF_Angle_Major_Axis_vec = NaN(True_Num_Cells,1);
-        SC_Gaus_Axis_eval_Ratio_mat         = NaN(True_Num_Cells,p.Spectral_Dim);
-        SC_Gaus_FullRF_Axis_eval_Ratio_vec  = NaN(True_Num_Cells,1);
-        SC_Gaus_Gaussian_mean_arr           = NaN(True_Num_Cells,p.Spectral_Dim,2);
-        SC_Gaus_FullRF_Gaussian_mean_mat    = NaN(True_Num_Cells,2);
+        SC_Gaus_Num_RF_pixels_mat           = NaN(true_num_cells,p.Spectral_Dim);
+        SC_Gaus_FullRF_Num_pixels_vec       = NaN(true_num_cells,1);
+        SC_Gaus_Abs_Ellipse_Area_mat        = NaN(true_num_cells,p.Spectral_Dim);
+        SC_Gaus_FullRF_Abs_Ellipse_Area_vec = NaN(true_num_cells,1);
+        SC_Gaus_RF_Angle_Major_Axis_mat     = NaN(true_num_cells,p.Spectral_Dim);
+        SC_Gaus_FullRF_Angle_Major_Axis_vec = NaN(true_num_cells,1);
+        SC_Gaus_Axis_eval_Ratio_mat         = NaN(true_num_cells,p.Spectral_Dim);
+        SC_Gaus_FullRF_Axis_eval_Ratio_vec  = NaN(true_num_cells,1);
+        SC_Gaus_Gaussian_mean_arr           = NaN(true_num_cells,p.Spectral_Dim,2);
+        SC_Gaus_FullRF_Gaussian_mean_mat    = NaN(true_num_cells,2);
 
-        for i = 1:True_Num_Cells
+        for i = 1:true_num_cells
             for j = 1:p.Spectral_Dim
-                if ~isempty(RF_Ident{i}.SC_Gaus_Num_RF_pixels{j})
-                    SC_Gaus_Num_RF_pixels_mat(i,j)       = RF_Ident{i}.SC_Gaus_Num_RF_pixels{j};
-                    SC_Gaus_Abs_Ellipse_Area_mat(i,j)    = RF_Ident{i}.SC_Gaus_Abs_Ellipse_Area(j);
-                    SC_Gaus_RF_Angle_Major_Axis_mat(i,j) = RF_Ident{i}.SC_Gaus_Angle_Major_Axis(j);
-                    SC_Gaus_Axis_eval_Ratio_mat(i,j)     = RF_Ident{i}.SC_Gaus_Axis_eval_Ratio(j);
-                    SC_Gaus_Gaussian_mean_arr(i,j,:)     = [RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(1),RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(2)];
+                if ~isempty(RF_Ident(i).RF_results.SC_Gaus_Num_RF_pixels{j})
+                    SC_Gaus_Num_RF_pixels_mat(i,j)       = RF_Ident(i).RF_results.SC_Gaus_Num_RF_pixels{j};
+                    SC_Gaus_Abs_Ellipse_Area_mat(i,j)    = RF_Ident(i).RF_results.SC_Gaus_Abs_Ellipse_Area(j);
+                    SC_Gaus_RF_Angle_Major_Axis_mat(i,j) = RF_Ident(i).RF_results.SC_Gaus_Angle_Major_Axis(j);
+                    SC_Gaus_Axis_eval_Ratio_mat(i,j)     = RF_Ident(i).RF_results.SC_Gaus_Axis_eval_Ratio(j);
+                    SC_Gaus_Gaussian_mean_arr(i,j,:)     = [RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(1),RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(2)];
                 end
             end
-            if RF_Ident{i}.SC_Gaus_FullRF_Num_pixels ~=0
-                SC_Gaus_FullRF_Num_pixels_vec(i)       = RF_Ident{i}.SC_Gaus_FullRF_Num_pixels;
-                SC_Gaus_FullRF_Abs_Ellipse_Area_vec(i) = RF_Ident{i}.SC_Gaus_FullRF_Abs_Ellipse_Area;
-                SC_Gaus_FullRF_Angle_Major_Axis_vec(i) = RF_Ident{i}.SC_Gaus_FullRF_Angle_Major_Axis;
-                SC_Gaus_FullRF_Axis_eval_Ratio_vec(i)  = RF_Ident{i}.SC_Gaus_FullRF_Axis_eval_Ratio;
-                SC_Gaus_FullRF_Gaussian_mean_mat(i,:)  = [RF_Ident{i}.SC_Gaus_FullRF_Gaussian_mean(1),RF_Ident{i}.SC_Gaus_FullRF_Gaussian_mean(2)];
+            if RF_Ident(i).RF_results.SC_Gaus_FullRF_Num_pixels ~=0
+                SC_Gaus_FullRF_Num_pixels_vec(i)       = RF_Ident(i).RF_results.SC_Gaus_FullRF_Num_pixels;
+                SC_Gaus_FullRF_Abs_Ellipse_Area_vec(i) = RF_Ident(i).RF_results.SC_Gaus_FullRF_Abs_Ellipse_Area;
+                SC_Gaus_FullRF_Angle_Major_Axis_vec(i) = RF_Ident(i).RF_results.SC_Gaus_FullRF_Angle_Major_Axis;
+                SC_Gaus_FullRF_Axis_eval_Ratio_vec(i)  = RF_Ident(i).RF_results.SC_Gaus_FullRF_Axis_eval_Ratio;
+                SC_Gaus_FullRF_Gaussian_mean_mat(i,:)  = [RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_mean(1),RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_mean(2)];
             end
         end
         SC_Gaus_Num_RF_pixels_mat_2     = SC_Gaus_Num_RF_pixels_mat;                                           % Full vector
@@ -228,15 +290,15 @@ end
 %% Plot data
 
 %% STA-SD
-if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
+if contains(add_info.settings.kernel_new.folderplot{1},'SS') % STA-SD
     
     %% Box
-    if p.RF_Type(1) == 1 % Box
-        
-    end
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
     
     %% ASP
-    if p.RF_Type(2) == 1     % All Significant Pixels
+    if add_info.settings.kernel_new.plot_Allpixel   % All Significant Pixels
         
         %% Num Pixels
         
@@ -306,7 +368,7 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
     end
     
     %% Gaussian
-    if p.RF_Type(3) == 1     % Gaussian
+    if add_info.settings.kernel_new.plot_Gauss % Gaussian
         
         
         %% Number of Pixels
@@ -573,14 +635,14 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         figure;
         %tic;
         for j = 1:p.Spectral_Dim
-            for i = 1:True_Num_Cells
+            for i = 1:true_num_cells
                 subplot(2,2,j);
                 if ~isnan(STASD_Gaus_Num_RF_pixels_mat_2(i,j))
-                    mu_1_loop             = RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(1);
-                    mu_2_loop             = RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(2);
-                    covar_loop            = RF_Ident{i}.STASD_Gaus_Gaussian_covar{j};
-                    eval_descend_vec_loop = RF_Ident{i}.STASD_Gaus_eval_descend_vec{j};
-                    evec_descend_mat_loop = RF_Ident{i}.STASD_Gaus_evec_descend_mat{j};
+                    mu_1_loop             = RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(1);
+                    mu_2_loop             = RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(2);
+                    covar_loop            = RF_Ident(i).RF_results.STASD_Gaus_Gaussian_covar{j};
+                    eval_descend_vec_loop = RF_Ident(i).RF_results.STASD_Gaus_eval_descend_vec{j};
+                    evec_descend_mat_loop = RF_Ident(i).RF_results.STASD_Gaus_evec_descend_mat{j};
                     sigma_x_loop = sqrt(eval_descend_vec_loop(1));
                     sigma_y_loop = sqrt(eval_descend_vec_loop(2));
                     x_vec_loop = p.RF_SDs*(sigma_x_loop*evec_descend_mat_loop(1,1)*cos(ellip_var_vec) + sigma_y_loop*evec_descend_mat_loop(1,2)*sin(ellip_var_vec)) + mu_1_loop;
@@ -612,14 +674,14 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         ellip_var_vec = linspace(0,2*pi,101); % 101
         figure;
         %tic;
-        for i = 1:True_Num_Cells
+        for i = 1:true_num_cells
             subplot(1,2,1);
             if ~isnan(STASD_Gaus_FullRF_Num_pixels_vec_2(i))
-                mu_1_loop  = RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_mean(1);
-                mu_2_loop  = RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_mean(2);
-                covar_loop = RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_covar;
-                eval_descend_vec_loop = RF_Ident{i}.STASD_Gaus_FullRF_eval_descend_vec;
-                evec_descend_mat_loop = RF_Ident{i}.STASD_Gaus_FullRF_evec_descend_mat;
+                mu_1_loop  = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_mean(1);
+                mu_2_loop  = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_mean(2);
+                covar_loop = RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_covar;
+                eval_descend_vec_loop = RF_Ident(i).RF_results.STASD_Gaus_FullRF_eval_descend_vec;
+                evec_descend_mat_loop = RF_Ident(i).RF_results.STASD_Gaus_FullRF_evec_descend_mat;
                 sigma_x_loop = sqrt(eval_descend_vec_loop(1));
                 sigma_y_loop = sqrt(eval_descend_vec_loop(2));
                 x_vec_loop = p.RF_SDs*(sigma_x_loop*evec_descend_mat_loop(1,1)*cos(ellip_var_vec) + sigma_y_loop*evec_descend_mat_loop(1,2)*sin(ellip_var_vec)) + mu_1_loop;
@@ -629,11 +691,11 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
             subplot(1,2,2);
             for j = 1:p.Spectral_Dim
                 if ~isnan(STASD_Gaus_Num_RF_pixels_mat_2(i,j))
-                    mu_1_loop  = RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(1);
-                    mu_2_loop  = RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(2);
-                    covar_loop = RF_Ident{i}.STASD_Gaus_Gaussian_covar{j};
-                    eval_descend_vec_loop = RF_Ident{i}.STASD_Gaus_eval_descend_vec{j};
-                    evec_descend_mat_loop = RF_Ident{i}.STASD_Gaus_evec_descend_mat{j};
+                    mu_1_loop  = RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(1);
+                    mu_2_loop  = RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(2);
+                    covar_loop = RF_Ident(i).RF_results.STASD_Gaus_Gaussian_covar{j};
+                    eval_descend_vec_loop = RF_Ident(i).RF_results.STASD_Gaus_eval_descend_vec{j};
+                    evec_descend_mat_loop = RF_Ident(i).RF_results.STASD_Gaus_evec_descend_mat{j};
                     sigma_x_loop = sqrt(eval_descend_vec_loop(1));
                     sigma_y_loop = sqrt(eval_descend_vec_loop(2));
                     x_vec_loop = p.RF_SDs*(sigma_x_loop*evec_descend_mat_loop(1,1)*cos(ellip_var_vec) + sigma_y_loop*evec_descend_mat_loop(1,2)*sin(ellip_var_vec)) + mu_1_loop;
@@ -676,10 +738,10 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         figure;
         %tic; % It's slightly faster to have the for loops this way around
         for j = 1:p.Spectral_Dim
-            for i = 1:True_Num_Cells
+            for i = 1:true_num_cells
                 subplot(2,2,j);
                 if ~isnan(STASD_Gaus_Num_RF_pixels_mat_2(i,j))
-                    plot(RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(1),RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
+                    plot(RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(1),RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
                 end
             end
             axis equal;
@@ -703,15 +765,15 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
         % Full RF (and Spectral Together)
         figure;
         %tic; % It's slightly faster to have the for loops this way around
-        for i = 1:True_Num_Cells
+        for i = 1:true_num_cells
             subplot(1,2,1);
             if ~isnan(STASD_Gaus_FullRF_Num_pixels_vec_2(i))
-                plot(RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_mean(1),RF_Ident{i}.STASD_Gaus_FullRF_Gaussian_mean(2),'Color','k','Marker','x','LineWidth',1.5); hold on;
+                plot(RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_mean(1),RF_Ident(i).RF_results.STASD_Gaus_FullRF_Gaussian_mean(2),'Color','k','Marker','x','LineWidth',1.5); hold on;
             end
             for j = 1:p.Spectral_Dim
                 subplot(1,2,2);
                 if ~isnan(STASD_Gaus_Num_RF_pixels_mat_2(i,j))
-                    plot(RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(1),RF_Ident{i}.STASD_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
+                    plot(RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(1),RF_Ident(i).RF_results.STASD_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
                 end
             end
         end
@@ -878,48 +940,48 @@ if     p.RF_Ident_Meth_vec(1) == 1 % STA-SD
 end
 
 
-%% LC
-if     p.RF_Ident_Meth_vec(2) == 1 % LC
-    
-    if p.RF_Type(1) == 1 % Box
-        
-    end
-    
-    if p.RF_Type(2) == 1     % All Significant Pixels
-        
-    end
-    
-    if p.RF_Type(3) == 1     % Gaussian
-        
-    end
-    
-end
-
-%% MI
-if     p.RF_Ident_Meth_vec(3) == 1 % MI
-    
-    if p.RF_Type(1) == 1 % Box
-        
-    end
-    
-    if p.RF_Type(2) == 1     % All Significant Pixels
-        
-    end
-    
-    if p.RF_Type(3) == 1     % Gaussian
-        
-    end
-    
-end
+% %% LC
+% if     p.RF_Ident_Meth_vec(2) == 1 % LC
+%     
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
+%     
+%     if p.RF_Type(2) == 1     % All Significant Pixels
+%         
+%     end
+%     
+%     if p.RF_Type(3) == 1     % Gaussian
+%         
+%     end
+%     
+% end
+% 
+% %% MI
+% if     p.RF_Ident_Meth_vec(3) == 1 % MI
+%     
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
+%     
+%     if p.RF_Type(2) == 1     % All Significant Pixels
+%         
+%     end
+%     
+%     if p.RF_Type(3) == 1     % Gaussian
+%         
+%     end
+%     
+% end
 
 %% SC
-if     p.RF_Ident_Meth_vec(4) == 1 % SC
+if contains(add_info.settings.kernel_new.folderplot{1},'SC')
     
-    if p.RF_Type(1) == 1 % Box
-        
-    end
+%     if p.RF_Type(1) == 1 % Box
+%         
+%     end
     
-    if p.RF_Type(2) == 1     % All Significant Pixels
+    if add_info.settings.kernel_new.plot_Allpixel% All Significant Pixels
         
         %% Num Pixels
         
@@ -988,7 +1050,7 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
         
     end
     
-    if p.RF_Type(3) == 1     % Gaussian
+    if add_info.settings.kernel_new.plot_Gauss    % Gaussian
         
         %% Number of Pixels
         
@@ -1254,14 +1316,14 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
         figure;
         %tic;
         for j = 1:p.Spectral_Dim
-            for i = 1:True_Num_Cells
+            for i = 1:true_num_cells
                 subplot(2,2,j);
                 if ~isnan(SC_Gaus_Num_RF_pixels_mat_2(i,j))
-                    mu_1_loop = RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(1);
-                    mu_2_loop = RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(2);
-                    covar_loop = RF_Ident{i}.SC_Gaus_Gaussian_covar{j};
-                    eval_descend_vec_loop = RF_Ident{i}.SC_Gaus_eval_descend_vec{j};
-                    evec_descend_mat_loop = RF_Ident{i}.SC_Gaus_evec_descend_mat{j};
+                    mu_1_loop = RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(1);
+                    mu_2_loop = RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(2);
+                    covar_loop = RF_Ident(i).RF_results.SC_Gaus_Gaussian_covar{j};
+                    eval_descend_vec_loop = RF_Ident(i).RF_results.SC_Gaus_eval_descend_vec{j};
+                    evec_descend_mat_loop = RF_Ident(i).RF_results.SC_Gaus_evec_descend_mat{j};
                     sigma_x_loop = sqrt(eval_descend_vec_loop(1));
                     sigma_y_loop = sqrt(eval_descend_vec_loop(2));
                     x_vec_loop = p.RF_SDs*(sigma_x_loop*evec_descend_mat_loop(1,1)*cos(ellip_var_vec) + sigma_y_loop*evec_descend_mat_loop(1,2)*sin(ellip_var_vec)) + mu_1_loop;
@@ -1293,14 +1355,14 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
         ellip_var_vec = linspace(0,2*pi,101); % 101
         figure;
         %tic;
-        for i = 1:True_Num_Cells
+        for i = 1:true_num_cells
             subplot(1,2,1);
             if ~isnan(SC_Gaus_FullRF_Num_pixels_vec_2(i))
-                mu_1_loop  = RF_Ident{i}.SC_Gaus_FullRF_Gaussian_mean(1);
-                mu_2_loop  = RF_Ident{i}.SC_Gaus_FullRF_Gaussian_mean(2);
-                covar_loop = RF_Ident{i}.SC_Gaus_FullRF_Gaussian_covar;
-                eval_descend_vec_loop = RF_Ident{i}.SC_Gaus_FullRF_eval_descend_vec;
-                evec_descend_mat_loop = RF_Ident{i}.SC_Gaus_FullRF_evec_descend_mat;
+                mu_1_loop  = RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_mean(1);
+                mu_2_loop  = RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_mean(2);
+                covar_loop = RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_covar;
+                eval_descend_vec_loop = RF_Ident(i).RF_results.SC_Gaus_FullRF_eval_descend_vec;
+                evec_descend_mat_loop = RF_Ident(i).RF_results.SC_Gaus_FullRF_evec_descend_mat;
                 sigma_x_loop = sqrt(eval_descend_vec_loop(1));
                 sigma_y_loop = sqrt(eval_descend_vec_loop(2));
                 x_vec_loop = p.RF_SDs*(sigma_x_loop*evec_descend_mat_loop(1,1)*cos(ellip_var_vec) + sigma_y_loop*evec_descend_mat_loop(1,2)*sin(ellip_var_vec)) + mu_1_loop;
@@ -1310,11 +1372,11 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
             subplot(1,2,2);
             for j = 1:p.Spectral_Dim
                 if ~isnan(SC_Gaus_Num_RF_pixels_mat_2(i,j))
-                    mu_1_loop  = RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(1);
-                    mu_2_loop  = RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(2);
-                    covar_loop = RF_Ident{i}.SC_Gaus_Gaussian_covar{j};
-                    eval_descend_vec_loop = RF_Ident{i}.SC_Gaus_eval_descend_vec{j};
-                    evec_descend_mat_loop = RF_Ident{i}.SC_Gaus_evec_descend_mat{j};
+                    mu_1_loop  = RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(1);
+                    mu_2_loop  = RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(2);
+                    covar_loop = RF_Ident(i).RF_results.SC_Gaus_Gaussian_covar{j};
+                    eval_descend_vec_loop = RF_Ident(i).RF_results.SC_Gaus_eval_descend_vec{j};
+                    evec_descend_mat_loop = RF_Ident(i).RF_results.SC_Gaus_evec_descend_mat{j};
                     sigma_x_loop = sqrt(eval_descend_vec_loop(1));
                     sigma_y_loop = sqrt(eval_descend_vec_loop(2));
                     x_vec_loop = p.RF_SDs*(sigma_x_loop*evec_descend_mat_loop(1,1)*cos(ellip_var_vec) + sigma_y_loop*evec_descend_mat_loop(1,2)*sin(ellip_var_vec)) + mu_1_loop;
@@ -1357,10 +1419,10 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
         figure;
         %tic; % It's slightly faster to have the for loops this way around
         for j = 1:p.Spectral_Dim
-            for i = 1:True_Num_Cells
+            for i = 1:true_num_cells
                 subplot(2,2,j);
                 if ~isnan(SC_Gaus_Num_RF_pixels_mat_2(i,j))
-                    plot(RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(1),RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
+                    plot(RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(1),RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
                 end
             end
             axis equal;
@@ -1384,15 +1446,15 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
         % Full RF (and Spectral Together)
         figure;
         %tic; % It's slightly faster to have the for loops this way around
-        for i = 1:True_Num_Cells
+        for i = 1:true_num_cells
             subplot(1,2,1);
             if ~isnan(SC_Gaus_FullRF_Num_pixels_vec_2(i))
-                plot(RF_Ident{i}.SC_Gaus_FullRF_Gaussian_mean(1),RF_Ident{i}.SC_Gaus_FullRF_Gaussian_mean(2),'Color','k','Marker','x','LineWidth',1.5); hold on;
+                plot(RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_mean(1),RF_Ident(i).RF_results.SC_Gaus_FullRF_Gaussian_mean(2),'Color','k','Marker','x','LineWidth',1.5); hold on;
             end
             for j = 1:p.Spectral_Dim
                 subplot(1,2,2);
                 if ~isnan(SC_Gaus_Num_RF_pixels_mat_2(i,j))
-                    plot(RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(1),RF_Ident{i}.SC_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
+                    plot(RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(1),RF_Ident(i).RF_results.SC_Gaus_Gaussian_mean{j}(2),'Color',colorMap_arr(end,:,j),'Marker','x','LineWidth',1.5); hold on;
                 end
             end
         end
@@ -1558,15 +1620,23 @@ if     p.RF_Ident_Meth_vec(4) == 1 % SC
     
 end
 
+autoArrangeFigures;
+
+%Ask if next dataset shall be plotted (To avoid that all figures for all datasets
+%are plotted all together)
+
+end
 
 
+out = 1;
+end
 % figure;
 % for i = 1:p.Spectral_Dim
 %
 %     subplot(2,2,i);
 %     hist_loop = histogram(Num_SC_ASP_RF_Pixels_mat(:,i));
 %     if Hist_Colour_Choice == 2
-%         set(hist_loop,'FaceColor',colorMap_arr(end,:,i));
+%         set(hist_loop,'FaceColor',colorMap_arr(end,:,i));i
 %     end
 %     if i>2
 %         xlabel('num. pixels');

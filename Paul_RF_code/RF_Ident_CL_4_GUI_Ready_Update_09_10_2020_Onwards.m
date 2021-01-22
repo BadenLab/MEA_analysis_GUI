@@ -183,10 +183,16 @@ end
 
 % Choose stimulus resolution (number of points sampled from stimulus time
 % window)
-p.Num_STE_bins = 10; % Default: 5 (Tom data, Time_Choice 1) or 10 (Tom data,Time_Choice 2); 20 (Marvin data)
+p.Num_STE_bins = 10; % Default: 5 (Tom data, Time_Choice 1) or 10 (Tom data,Time_Choice 2); 20 (Marvin data) %mars: Replaced with variable from gui 
 
 
-%% Load Data
+%% Load Data 
+%mars: This section was completely reworked. I will comment the things that
+%remain similar as far as possible.
+
+
+%mars: added blocks: Memory handling, specify trigger channel, Load data.
+
 
 %load Marvin_Data_Chicken_24_08_2019_PARMod.mat;
 %load Marvin_Data_Chicken_06_12_2019_PARMod.mat;
@@ -194,7 +200,7 @@ p.Num_STE_bins = 10; % Default: 5 (Tom data, Time_Choice 1) or 10 (Tom data,Time
 %load Colour_noise50px_data_PARMod.mat;
 %load Colour_noise50px_data_PARMod2.mat;
 
-load Colour_noise50px_data.mat;
+load Colour_noise50px_data.mat; %mars: This is handed over to the function from the gui automatically
 %load 30pxNoise_subset.mat; % There is something wrong with this data set, it gives no RF.
 %load 20pxNoise_subset.mat;
 
@@ -208,8 +214,8 @@ else % Cell_Choice == 2 % Subset of cells
     True_cell_index_vec = Cell_Choice_vec(any(~isnan(spike_times_mat))); % Record indices of remaining cells
 end
 
-spike_times_mat(:,~any(~isnan(spike_times_mat))) = [];
-True_Num_Cells     = size(spike_times_mat,2);
+spike_times_mat(:,~any(~isnan(spike_times_mat))) = []; %mars: now "spiketimestamps", loaded later
+True_Num_Cells     = size(spike_times_mat,2); %mars: Not necessary
 
 trigCh_vec         = Ch_new.trigger_ch;
 min_trigCh_vec     = min(trigCh_vec);
@@ -248,7 +254,11 @@ p.Spectral_Dim = size(stimulus_arr,4);
 p.stim_frames = size(stimulus_arr,3);   % PAR Mod 27,08,2020 (moved from below, was stim_frames)
 p.Num_trigs   = length(trig_times_vec); % PAR Mod 27,08,2020
 
-if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement)
+if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020 (whole if statement) %mars: This was rewritten, because it implies
+    %that the number of frames is always known, but this is not the case. I
+    %have written it in a way that the code checks how big each chunk of
+    %noise is and than defines this as the number of triggers. It than
+    %checks if the last chunk is smaller than all the others. 
     
     Num_FNoise_rep      = p.Num_trigs/p.stim_frames;
     p.Num_FNoise_rep_ceil = ceil(Num_FNoise_rep);
@@ -262,7 +272,7 @@ if p.Num_trigs > p.stim_frames % Frozen noise repeated case % PAR Mod 27,08,2020
     % 1. w/o gaps;
     % 2. with gaps.
     if sum(inter_noise_int_vec <= max_trig_int) == p.Num_FNoise_rep_ceil-1
-        p.Gap_Ind = 1;
+        p.Gap_Ind = 1; %mars: this case never happens, so can be deleted.
     else % sum(inter_noise_int_vec <= max_trig_int) < p.Num_FNoise_rep_ceil-1 (anticipate = 0)
         p.Gap_Ind = 2;
     end
@@ -274,7 +284,7 @@ else % p.Num_trigs <= p.stim_frames % PAR Mod 17,09,2020 (else part)
 end
 
 if p.Num_trigs < p.stim_frames % PAR Mod 09,10,2020 (whole if statement)
-    p.Num_FNoise_rep_ceil = 1;
+    p.Num_FNoise_rep_ceil = 1; %mars: This doesnt work, as the number of frames == number of trigger, changed it so it works in the new context
 end
 
 
@@ -286,7 +296,7 @@ Num_Trig_Final_NoiseChunk = mod(p.Num_trigs,p.stim_frames); % PAR Mod 17,09,2020
 %%% Set Parameters
 
 % Stimulus ppties
-stim_freq  = 20;          % Hz
+stim_freq  = 20;          % Hz %mars: Get this information from the gui
 stim_int   = 1/stim_freq; % sec
 p.stim_int = stim_int; % PAR Mod 17,09,2020
 
@@ -376,12 +386,12 @@ set(gcf,'color','w');
 %% Call RF Identification Function
 % MEA data: stimulus_array := 40 rows, 40 columns,6000 frames, 4 colours
 
-RF_Ident = cell(True_Num_Cells,1);
+RF_Ident = cell(True_Num_Cells,1); %mars: Changed to a structure containing cell array
 
 if p.RF_Ident_Meth_vec(1) == 1 % STA-SD method
     if p.STA_Choice  == 2 % subtract average stim
         p.mean_raw_stim_arr = NaN(p.stim_rows,p.stim_columns,p.Num_STE_bins,p.Spectral_Dim);
-        if p.Num_trigs >= p.Num_STE_bins+1 % PAR Mod 09,10,2020 (contents aren't new, just this outer if statement wrapping around it)
+        if p.Num_trigs >= p.Num_STE_bins+1 % PAR Mod 09,10,2020 (contents aren't new, just this outer if statement wrapping around it) %mars: Check for this at the begining, so we dont have to run all code until here for nothing.
             for i = 1:p.Spectral_Dim
                 p.mean_raw_stim_arr(:,:,:,i) = mean_raw_stim_SpaceTime_fn_v2(stimulus_arr(:,:,:,i),trig_times_vec_trunc,p); % PAR Mod 27,08,2020 was 'mean_raw_stim_SpaceTime_fn' and 'trig_times_vec'
             end
