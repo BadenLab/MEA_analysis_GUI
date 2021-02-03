@@ -337,6 +337,7 @@ if strcmp(file_ending,'.h5')
 stimulus_arr = load_noise_from_hdf5(string(noise_file),true,1,double(trig_per_frozen));
 nr_boxes = int64(sqrt(size(stimulus_arr,2)));
 nr_colours = int64(size(stimulus_arr,3));
+stimulus_arr = permute(stimulus_arr,[2 1 3]); % PAR Mod 01,02,2021
 stimulus_arr = reshape(stimulus_arr,[nr_boxes,nr_boxes,trig_per_frozen,nr_colours]);
 
 elseif strcmp(file_ending,'.txt') %Old version of getting the sequence
