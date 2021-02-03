@@ -658,6 +658,7 @@ end
 
 if     p.RF_Ident_Meth_vec(1) == 1
     
+    RF_Ident.STA    = STA; % PAR Mod 26,01,2021
     RF_Ident.STA_SD = STA_SD;
     
 end
