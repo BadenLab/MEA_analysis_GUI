@@ -1,3 +1,4 @@
+
 function out = draw_gratings (savepath, add_info)
 %This script draws the results of the grating analysis on the GUI
 
@@ -147,7 +148,8 @@ for kk = 1:nr_dir
     ylim(ix(kk),[0,cc+0.05])
 end
    hold(ax(jj),'off');
-   linkaxes(ix,'xy');
+   %linkprop(ix,{'XLim','YLim'})
+   %linkaxes(ix,'xy');
 end
     
 end

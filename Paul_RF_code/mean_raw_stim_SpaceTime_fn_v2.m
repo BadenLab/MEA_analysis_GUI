@@ -4,9 +4,12 @@ function mean_raw_stim_arr = mean_raw_stim_SpaceTime_fn_v2(stimulus_arr,trig_tim
 
 mean_raw_stim_arr_loop = zeros(p.stim_rows,p.stim_columns,p.Num_STE_bins);
 
+modNum_FinalFrames = mod(p.Num_trigs,p.stim_frames); % PAR Mod 02,02,2021
+
 if p.Time_Choice == 1 || p.Mean_Stim_Choice  == 1 % stimulus frames
     
-    modNum_FinalFrames = mod(p.Num_trigs,p.stim_frames);
+    % modNum_FinalFrames = mod(p.Num_trigs,p.stim_frames); % PAR Mod
+    % 02,02,2021 (movde above outside if statement)
     
     if modNum_FinalFrames==0 % Every noise chunk is repeated a whole number of times
         

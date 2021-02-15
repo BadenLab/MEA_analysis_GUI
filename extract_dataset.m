@@ -55,7 +55,11 @@ for kk = 1:nr_stimuli
         spiketimestamps = load_spiketimestamps_app (savepath, data, 'cell_subset',cell_subset);
     end
     
-    
+%This resets the spiketimestamps of each stimulus back to the stimulus
+%begin so that spiketimestamps start relative to the beginning.
+spiketimestamps = spiketimestamps-st_b;
+
+
 %Next load the trigger times, for this we need to load the Ch variable
 
 S = load(savepath,'Ch');

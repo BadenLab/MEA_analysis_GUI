@@ -44,7 +44,7 @@ for nn = 1:stim_repeats
     start_trigger = stim_begin*SamplingFrequency;
     end_trigger = stim_end*SamplingFrequency;
     
-    trigger_ch = Ch01_02(start_trigger-100:end_trigger+100);
+    trigger_ch = Ch01_02(int64(start_trigger-100):int64(end_trigger+100));
     diff_trigger_ch = diff(trigger_ch(1,:));
     trigger_ch_norm = diff_trigger_ch(1,:) > 500;
     %Get trigger times

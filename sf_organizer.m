@@ -16,7 +16,7 @@ defaultOverwrite = false;
 default_update_data = true;
 defaultCollect = false;
 p = inputParser;
-validScalarPosNum = @(x) isnumeric(x) && isscalar(x) && (x > 0);
+validScalarPosNum = @(x) isnumeric(x) && isscalar(x);
 %validMatrixShape = @(x) isnumeric(x) && (size(x,1) ==1) && (size(x,2) == 2);
 addRequired(p,'stim_idx',validScalarPosNum);
 addRequired(p,'savepath',@ischar);
@@ -217,7 +217,7 @@ if isfield(variables,'variable_name')&&isfield(variables,'variable')
             if figure_save
                 savefig(variables.variable,filename);
             else
-                save(filename,'-struct','save_struc');
+                save(filename,'-struct','save_struc','-v7.3');
             end
             if variables.update_data == 1
                 Data(Data_idx).Files{end+1} = [filename,file_ending];    

@@ -59,7 +59,7 @@ noise_end = stim_end(nn)*SamplingFrequency;
 noise_begin_s = stim_begin(nn);
 noise_end_s = stim_end(nn);
 
-noise_trigger_trace(1,:) = Ch01_02(noise_begin:noise_end);
+noise_trigger_trace(1,:) = Ch01_02(int64(noise_begin):int64(noise_end));
 noise_trigger_trace(2,:) = (noise_begin:1:noise_end);
 noise_diff_trigger = diff(noise_trigger_trace(1,:));
 noise_trigger_norm = noise_trigger_trace(1,:) > 2500;
@@ -140,19 +140,20 @@ nr_boxes(2) = str2double(nr_boxes_temp{2});
 nr_boxes = nr_boxes(1)*nr_boxes(2);
 
 %load the data from the hdf5 file
-hdf5_file = 'D:\Data_MEA_Setup\QDSpy\Stimuli\zebrafish_04_10\waves\Noise.h5';
-%hdf5_file = add_info.settings.location.noise;
+%hdf5_file = 'D:\Data_MEA_Setup\QDSpy\Stimuli\zebrafish_04_10\waves\Noise.h5';
+
+hdf5_file = add_info.settings.location.noise;
 hdf5_start = [1 1];
-hdf5_count = [locs_per_frozen nr_boxes];
+hdf5_count = [nr_boxes locs_per_frozen];
 
 
 %nr_frozen
-Colour_noise_temp = zeros(uint16(hdf5_count));
+Colour_noise_temp = zeros(uint16(hdf5_count(2)),uint16(hdf5_count(1)));
 
-Colour_noise_temp(:,:,1) = h5read(hdf5_file, '/UV_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,2) = h5read(hdf5_file, '/Blue_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,3) = h5read(hdf5_file, '/Green_Noise', hdf5_start, hdf5_count);
-Colour_noise_temp(:,:,4) = h5read(hdf5_file, '/Red_Noise', hdf5_start, hdf5_count);
+Colour_noise_temp(:,:,1) = (h5read(hdf5_file, '/UV_Noise', hdf5_start, hdf5_count))';
+Colour_noise_temp(:,:,2) = (h5read(hdf5_file, '/Blue_Noise', hdf5_start, hdf5_count))';
+Colour_noise_temp(:,:,3) = (h5read(hdf5_file, '/Green_Noise', hdf5_start, hdf5_count))';
+Colour_noise_temp(:,:,4) = (h5read(hdf5_file, '/Red_Noise', hdf5_start, hdf5_count))';
 
 
 %Multiply this by the time the noise was shown
@@ -225,7 +226,7 @@ cd (pathname)
 % Kernels = matfile('Kernels.mat','Writable',true);
 
 %Check if the subfolder for the stimulus exists
-out = sf_organizer(stim_idx,savepath,'subfoldername',"Kernel");
+out = sf_organizer(stim_idx,savepath,'subfoldername','Kernel');
 
 
 waitmessage = parfor_wait(stx_rs,'Waitbar',true);
@@ -363,7 +364,7 @@ parfor rs = 1:stx_rs
     %Create name for the kernel file
     Kernel_name = ['Kernel_Cell_',num2str(cell_indices_temp(rs))];
     Kernel_location_temp(rs,1) = sf_organizer(stim_idx_temp,savepath,'variable_name',...
-        'Kernels','filename',Kernel_name,'subfoldername',"Kernel",'variable',kernels_temp,...
+        'Kernels','filename',Kernel_name,'subfoldername','Kernel','variable',kernels_temp,...
         'overwrite',true,'update_data',false)
     
     
@@ -378,23 +379,24 @@ waitmessage.Destroy;
 kernel_idx = size(Kernel_location_temp,1);
 
 if isempty(Kernel_location)
-    Kernel_location(1:kernel_idx,1) = Kernel_location_temp;
+    Kernel_location(1:kernel_idx,1) = Kernel_location_temp(:,1);
     Kernel_location(1:kernel_idx,2) = cell_indices_temp; 
 else
     
-    Kernel_location(end:end+kernel_idx-1,1) = Kernel_location_temp;
+    Kernel_location(end:end+kernel_idx-1,1) = Kernel_location_temp(:,1);
     Kernel_location(end:end+kernel_idx-1,2) = cell_indices_temp; 
 end
 
 
-[~] = sf_organizer(stim_idx, savepath, 'subfoldername', "Kernel", 'collect_files',true);
-[~] = sf_organizer(stim_idx,savepath,'variable_name','Kernel_location','variable',Kernel_location);
+
+
 end
 % S = matfile(savepath, 'Writable', true);
 % S.Kernel_location = Kernel_location';
 
 
-    
+[~] = sf_organizer(stim_idx, savepath, 'subfoldername', 'Kernel', 'collect_files',true);
+[~] = sf_organizer(stim_idx,savepath,'variable_name','Kernel_location','variable',Kernel_location);    
 
 out = add_info;
 

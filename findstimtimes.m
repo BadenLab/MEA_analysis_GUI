@@ -66,7 +66,7 @@ filename = [stimulus_path,stimulus_file];
  [unique_locs, position] = unique(locs_diff(locs_diff_true));
  position = position_true(position);
 %% Identify unique trigger signals 
- true_unique = logical(unique_test(unique_locs));
+ true_unique = logical(unique_test(unique_locs,0.01));
  
  %position = position';
  locs_idx = position(1,true_unique);
@@ -100,7 +100,7 @@ filename = [stimulus_path,stimulus_file];
  %be extended beyond that so that we get the responding spikes.
  
  for ii = 1:length(stim_begin)
-     
+    try
     [~,locs_stim] = findpeaks(gather(double(stim_Ch_norm(stim_begin(ii):stim_end(ii))),'MinPeakProminence',1,'MinPeakDistance',178));
     if isempty(locs_stim)
         continue
@@ -108,6 +108,11 @@ filename = [stimulus_path,stimulus_file];
     stim_diff = diff(locs_stim);
     trig_max = max(stim_diff);
     stim_end(ii) = stim_end(ii)+trig_max; %Problem if the trigger channel is shorter...
+    end
+    catch
+        continue
+        %Error can be thrown when the stim begin and stim end are too close
+        %together
     end
          
  end

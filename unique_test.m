@@ -1,4 +1,4 @@
-function true_unique = unique_test (input)
+function true_unique = unique_test (input,sensitivity)
 input_size = size(input,2);
 true_unique = zeros(1,input_size);
 %test_size = 0.05*input_size;
@@ -9,7 +9,7 @@ else
 
 
 for ii = 1:input_size
-    input_test = ceil05(input / input(ii),0.1);
+    input_test = ceil05(input / input(ii),sensitivity);
     input_test = nnz(input_test == 1);
     input_test
    

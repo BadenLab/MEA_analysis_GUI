@@ -51,7 +51,7 @@ ax1 = subplot(3,1,1,'parent',FFF_panel);
 plot_raster(raster_spikes_plot,1,ax1);
 raster_lim = size(raster_spikes_plot,2)*0.25+1;
 ylim(ax1,[0,raster_lim]);
-ylabel(ax1,'Repeats')
+%ylabel(ax1,'Repeats')
 
 
 %% Trace plot
@@ -60,7 +60,7 @@ ylabel(ax1,'Repeats')
 % ax1 = 
 ax2 = subplot(3,1,2,'parent',FFF_panel);
 plot(ax2,x_values,y_values,'k')
-ylabel(ax2,'Spikes in [Hz]');
+%ylabel(ax2,'Spikes in [Hz]');
 
 
 %% Stimulus plot
@@ -81,15 +81,15 @@ end
 %Plot stimulus
 ax3 = subplot(3,1,3,'parent',FFF_panel);
 stimulus_plot = bar(ax3,x_values,stim_fig,2,'FaceColor','flat','EdgeColor','flat');
-ylabel(ax3,'Stimulus');
-xlabel(ax3,'Time in [s]');
+%ylabel(ax3,'Stimulus');
+%xlabel(ax3,'Time in [s]');
 
 for kk = 1:length(RGB_values)
     
     stimulus_plot.CData(kk,:) = RGB_values(kk,:);
 end
-
-linkaxes([ax1,ax2,ax3],'x');
+linkprop([ax1,ax2,ax3],{'XLim'});
+%linkaxes([ax1,ax2,ax3],'x');
 
 
 end
