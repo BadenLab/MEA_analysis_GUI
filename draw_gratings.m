@@ -148,7 +148,8 @@ for kk = 1:nr_dir
     ylim(ix(kk),[0,cc+0.05])
 end
    hold(ax(jj),'off');
-   linkaxes(ix,'xy');
+   %linkprop(ix,{'XLim','YLim'})
+   %linkaxes(ix,'xy');
 end
     
 end

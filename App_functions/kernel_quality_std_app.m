@@ -25,6 +25,7 @@ for kk = 1:nr_Kernels
         Kernel_std = std(Kernel_temp);
         Kernel_std_all = std(Kernel_temp,0,'all');
         Active_Channels = find(Kernel_std>Kernel_std_all*std_threshold);
+        %Active_Channels = find(Kernel_std>20);
         nr_active_Channels = nnz(Active_Channels);
         
         if nr_active_Channels > max_detect

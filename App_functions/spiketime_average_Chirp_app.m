@@ -1,6 +1,6 @@
 function out = spiketime_average_Chirp_app (savepath, add_info)
 %Load stimulus trace
-nr_colours = 2;
+nr_colours = 4;
 stim_idx = add_info.stim_idx;
 
  %% Load saved bins

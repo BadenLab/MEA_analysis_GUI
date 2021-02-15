@@ -70,7 +70,7 @@ else
 
     end
     ylim([0,1+ii*0.25])
-    xlim([-0.5,nanmax(in,[],'all')+1])
+    xlim([-0.5,gather(nanmax(in,[],'all'))+1])
     
     hold off
     

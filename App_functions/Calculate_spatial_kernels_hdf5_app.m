@@ -226,7 +226,7 @@ cd (pathname)
 % Kernels = matfile('Kernels.mat','Writable',true);
 
 %Check if the subfolder for the stimulus exists
-out = sf_organizer(stim_idx,savepath,'subfoldername',"Kernel");
+out = sf_organizer(stim_idx,savepath,'subfoldername','Kernel');
 
 
 waitmessage = parfor_wait(stx_rs,'Waitbar',true);
@@ -364,7 +364,7 @@ parfor rs = 1:stx_rs
     %Create name for the kernel file
     Kernel_name = ['Kernel_Cell_',num2str(cell_indices_temp(rs))];
     Kernel_location_temp(rs,1) = sf_organizer(stim_idx_temp,savepath,'variable_name',...
-        'Kernels','filename',Kernel_name,'subfoldername',"Kernel",'variable',kernels_temp,...
+        'Kernels','filename',Kernel_name,'subfoldername','Kernel','variable',kernels_temp,...
         'overwrite',true,'update_data',false)
     
     
@@ -388,14 +388,15 @@ else
 end
 
 
-[~] = sf_organizer(stim_idx, savepath, 'subfoldername', "Kernel", 'collect_files',true);
-[~] = sf_organizer(stim_idx,savepath,'variable_name','Kernel_location','variable',Kernel_location);
+
+
 end
 % S = matfile(savepath, 'Writable', true);
 % S.Kernel_location = Kernel_location';
 
 
-    
+[~] = sf_organizer(stim_idx, savepath, 'subfoldername', 'Kernel', 'collect_files',true);
+[~] = sf_organizer(stim_idx,savepath,'variable_name','Kernel_location','variable',Kernel_location);    
 
 out = add_info;
 

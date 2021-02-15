@@ -25,7 +25,7 @@ p.RF_Ident_Meth_vec = [kernel_settings.SS,0,0,kernel_settings.SC];
 % Choose whether to calculate STE_Full for use with LC/MI/SC % PAR Mod 27,08,2020
 % 1: Yes,
 % 2: No.
-p.STE_Full_Choice = 1;%2;
+p.STE_Full_Choice = 1;
 
 % Choose RF Quality Control (QC) and Thresholds
 if p.RF_Ident_Meth_vec(1) == 1
@@ -337,6 +337,7 @@ if strcmp(file_ending,'.h5')
 stimulus_arr = load_noise_from_hdf5(string(noise_file),true,1,double(trig_per_frozen));
 nr_boxes = int64(sqrt(size(stimulus_arr,2)));
 nr_colours = int64(size(stimulus_arr,3));
+stimulus_arr = permute(stimulus_arr,[2 1 3]); % PAR Mod 01,02,2021
 stimulus_arr = reshape(stimulus_arr,[nr_boxes,nr_boxes,trig_per_frozen,nr_colours]);
 
 elseif strcmp(file_ending,'.txt') %Old version of getting the sequence
@@ -711,7 +712,7 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
         
         %RF_Ident{i} = RF_Ident_fn_v5(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p_par); % PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
         RF_Ident(i).RF_results =...
-            RF_Ident_fn_v6(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+            RF_Ident_fn_v8(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
         RF_Ident(i).cell_idx = cell_indices_temp(i);
         
         RF_Ident(i).add_info = settings.settings.kernel_new;
@@ -876,7 +877,7 @@ else %  Parpool == 2 % Parpool off
         %p.length_spike_times      = length(spike_times_vec_loop);
         length_spike_times_loop   = length(spike_times_vec_loop); % To allow parfor
         
-        RF_Ident(i).RF_results = RF_Ident_fn_v7(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
+        RF_Ident(i).RF_results = RF_Ident_fn_v8(stimulus_arr,trig_times_vec_trunc,spike_times_vec_loop,length_spike_times_loop,p); % PAR Mod 17,09,2020 (RF_Ident_fn_v5 -->  RF_Ident_fn_v6) %%% PAR Mod 27,08,2020 --> was 'RF_Ident_fn_v4' and 'trig_times_vec'
         RF_Ident(i).cell_idx = cell_indices_temp(i);
         
         %Add info if first cell
@@ -1203,7 +1204,7 @@ elseif add_info.settings.kernel_new.SC_CI
 end
    
 
-close(f)
+%close(f)
 
 clear RF_Ident
 clear RF_overview
