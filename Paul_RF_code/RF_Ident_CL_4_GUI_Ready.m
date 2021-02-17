@@ -25,7 +25,7 @@ p.RF_Ident_Meth_vec = [kernel_settings.SS,0,0,kernel_settings.SC];
 % Choose whether to calculate STE_Full for use with LC/MI/SC % PAR Mod 27,08,2020
 % 1: Yes,
 % 2: No.
-p.STE_Full_Choice = 1;
+p.STE_Full_Choice = 2;
 
 % Choose RF Quality Control (QC) and Thresholds
 if p.RF_Ident_Meth_vec(1) == 1
@@ -537,7 +537,7 @@ if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already ac
     
     %parpool(Num_Cores);
     
-    parfor i = 1:stx % for/parfor
+    for i = 1:stx % for/parfor
         i
         
         settings = add_info;  

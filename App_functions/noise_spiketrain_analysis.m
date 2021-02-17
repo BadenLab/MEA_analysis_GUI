@@ -20,6 +20,9 @@ noise_trigger_norm = trigger_ch(1,:) > 2500;
 %find the peaks in the differences (which correspond to the beginning of a
 %trigger event
 [~,locs] = findpeaks(gather(double(noise_trigger_norm)),'MinPeakProminence',1,'MinPeakDistance',178);
+locs_temp = 1;
+locs_temp(2:length(locs)+1) = locs;
+locs = locs_temp;
 locs_diff = diff(locs);
 %Find locs which indicate beginning of chunk of frozen noise
 locs_diff_norm = ceil05(locs_diff,0.05);
@@ -35,6 +38,7 @@ locs_begin_idx = ones(1,length(locs_begin_idx_temp)+1);
 locs_begin_idx(2:end) = locs_begin_idx_temp;
 %Get it in seconds
 locs_begin_s = (locs_begin_idx+noise_begin_fr)/S.Ch.SamplingFrequency;
+locs_s = locs/S.Ch.SamplingFrequency;
 %% Load actual stimulus sequence (to see correlations between different colours)
 %Check how many frames per repeat
 begin_second_locs = find(locs_begin,1,'first');
@@ -66,12 +70,116 @@ spiketimestamps = load_spiketimestamps_app(savepath,chunk_info,[cell_idx cell_id
 %spiketimestamps = spiketimestamps - add_info.stim_begin;
 
 
-
+locs_idx_temp = 1;
+locs_idx_temp(2:length(locs_idx)+1) = locs_idx;
+locs_idx_temp(end+1) = length(locs_s)+1;
 spike_cell = squeeze(spiketimestamps(:,1,:));
 for ii = 1:size(spike_cell,2)
     spike_cell(:,ii) = spike_cell(:,ii)-locs_begin_s(ii);
-        
+    locs_subset(:,ii) = locs_s(locs_idx_temp(ii):locs_idx_temp(ii+1)-1);
+    locs_subset(:,ii) = locs_subset(:,ii) - locs_subset(1,ii);
+    
 end
+
+
+for ii = 1:size(spike_cell,2)
+   locs_subset(begin_second_locs+1,ii) = locs_subset(end,ii)+noise_interval; 
+end
+
+
+
+%% Alignment of spikes (horror show)
+spikes_aligned = NaN(length(locs_subset),size(spike_cell,2));
+for ii = 1:size(spike_cell,2)
+   spikes_temp = spike_cell(:,ii); 
+   a = 1;
+   for kk = 1:begin_second_locs
+        spikes_match = logical((spikes_temp > locs_subset(kk,ii)).*(...
+            spikes_temp<= locs_subset(kk+1,ii))); 
+        try
+        spikes_aligned(a,ii) = spikes_temp(spikes_match)-locs_subset(kk,ii)+kk;
+        a = a+1;
+        catch
+            continue
+        end
+   end
+    
+end
+
+
+
+
+%% Bin Data
+%Transform data to a series of 0 and 1 at a given bin size
+binsize = 0.001; %To create a matrix with 0 and 1 (spike or no spike)
+maxspikes = nanmax(spikes_aligned,[],'all');
+if isnan(maxspikes)
+    %continue
+end
+nr_repeats = size(spikes_aligned,2);
+nr_bins = ceil(maxspikes/binsize);
+
+max_bin_time = binsize*nr_bins; %Last edge of the histcount
+
+edges = (binsize:binsize:max_bin_time);
+
+cell_histcount = zeros(nr_bins-1,nr_repeats);
+
+%Bin all traces
+for ii = 1:nr_repeats
+    try
+    cell_histcount(:,ii) = histcounts(spikes_aligned(:,ii),edges);
+    catch
+        continue
+    end
+end
+
+
+
+%% convolve with gaussian kernel
+%each spike falls into a certain time-probability window determined by a
+%gaussian kernel
+
+w = gausswin(2500);
+spikes_smoothed = zeros(size(edges,2)-1,nr_repeats);
+for ii = 1:nr_repeats
+    
+    spikes_smoothed(:,ii) = conv(cell_histcount(:,ii),w,'same');
+    spikes_smoothed(:,ii) = spikes_smoothed(:,ii)/max(spikes_smoothed(:,ii));
+   
+end
+
+%% Plot overview
+% Calculate average trace (old stuff)
+% point wise multiplication
+spikes_smoothed1 = spikes_smoothed+1;
+trace_average = [];
+trace_average(:,1) = spikes_smoothed1(:,1);
+for ii =1:size(spikes_smoothed1,2)-1
+    trace_average = trace_average(:).*spikes_smoothed1(:,ii+1);
+end
+trace_average = trace_average/2-1;
+%Normalize average trace
+%trace_average = trace_average/max(trace_average);
+
+
+figure
+    ax = [];
+    ax(1) = subplot(nr_repeats+2,1,1);
+    plot_raster(spikes_aligned,1);
+
+for ii = 1:nr_repeats
+   ax(ii+1) = subplot(nr_repeats+2,1,ii+1);
+   
+   plot(edges(1:end-1),spikes_smoothed(:,ii),'k');
+   
+end
+
+ax(nr_repeats+2) = subplot(nr_repeats+2,1,nr_repeats+2);
+plot(edges(1:end-1),trace_average,'k')
+linkaxes(ax,'x')
+
+
 
 %% Plot
 figure;
