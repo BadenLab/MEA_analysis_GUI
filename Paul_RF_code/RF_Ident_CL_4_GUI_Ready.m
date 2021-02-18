@@ -9,7 +9,7 @@ cell_indices = M.cell_indices;
 
 %% Choose whether to use parallel processing and number of cores
 Parpool = add_info.settings.parpro; %Decided in the gui
-%Num_Cores = 4; %implement later
+Num_Cores = 4; %implement later
 
 %% Make RF Identification Choices
 
@@ -497,7 +497,7 @@ set(gcf,'color','w');
 h = waitbar(0,'Batch nr: ');
 % for bb = 1:batch_nr
 for bb = 1:batch_nr
-    waitbar(bb/batch_nr,h,[num2str(bb),' of ', batch_nr]);
+    waitbar(bb/batch_nr,h,['Batch nr ',num2str(bb),' of ', num2str(batch_nr)]);
 %Initiate the batch    
 spiketimestamps = load_spiketimestamps_app (savepath, add_info,...
     'cell_subset',[batch_begins(bb),batch_ends(bb)]);
@@ -535,7 +535,9 @@ end
 tic;
 if Parpool == 1 % Parpool on %@mars: This doesnt work if a parpool is already active
     
-    %parpool(Num_Cores);
+    try
+        parpool(Num_Cores);
+    end
     
     parfor i = 1:stx % for/parfor
         i
@@ -1208,6 +1210,13 @@ end
 
 clear RF_Ident
 clear RF_overview
+
+
+end
+try
+    close(h)
+catch
+    continue
 end
 end
 toc;

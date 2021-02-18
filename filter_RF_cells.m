@@ -42,7 +42,11 @@ else
         table_dummy.Properties.VariableNames = table_heads;
         
     end
+ plot_zeros = false(length(RF_overview),1);
+ zero_table = table(plot_zeros, 'VariableNames', {'Plot selection'});
+ table_dummy = [table_dummy,zero_table];
  add_info.tables.RF_single_cell.Data = table_dummy;
+ set(add_info.tables.RF_single_cell,'ColumnEditable',[false,false,true]);
 
 end
 out = 1;

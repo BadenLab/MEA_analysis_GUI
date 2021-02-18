@@ -1,6 +1,11 @@
 %% Plot RF and Associated Summary Statistics - Single Cell
 function out = CL_Plotting_RF_SingleCell_v1 (savepath, add_info)
 % Choose which cell RF to plot
+% THis can either be the cell that is highlighted in the table, or a user
+% selection by ticking the column "Plot selection"
+cells_selected = add_info.tables.RF_single_cell.Data
+
+
 cell_to_plot  = add_info.settings.kernel_new.cell_to_plot;
 Spectral_Dim = 4;
 Spectral_Names = {'Red','Green','Blue','VS or UV'};
@@ -603,6 +608,9 @@ end
 %catch
    % warning('No receptive field data found for given cell and threshold');
 %end
+if add_info.settings.kernel_new.plot_all_STA || add_info.settings.kernel_new.plot_STA_sig_pix  
+    Plot_STA_app(RF_Ident_Plot,add_info.settings,RF_type);
+end
 end
 end
 
@@ -610,20 +618,21 @@ end
 % Every second child object in the panel is an axis
 
 
-if ~strcmp(get(fig3,'type'),'uipanel')
-    autoArrangeFigures
-end
+
 
 
 
 
 %% Plot STA if wanted
 
-if add_info.settings.kernel_new.plot_all_STA
-    Plot_STA_app(RF_Ident_Plot,add_info.settings,RF_type);
+
+
+
+
+if ~strcmp(get(fig3,'type'),'uipanel')
+    autoArrangeFigures
 end
-
-
+out = 1;
 
 end
 

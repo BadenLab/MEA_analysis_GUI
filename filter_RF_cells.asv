@@ -12,9 +12,11 @@ if add_info.settings.kernel_new.filter_CellswithRF
     add_info.tables.RF_single_cell.Data = Data;
         
 else
+    table_heads = {'Cell idx'};
     M = matfile(savepath,'Writable',false);
     RF_overview_log = false(length(M.cell_indices),length(add_info.settings.kernel_new.folderplot));
     for ii = 1:length(add_info.settings.kernel_new.folderplot)
+        legend_name{ii} = strrep(add_info.settings.kernel_new.folderplot{:,ii},'_',' ');
         Stimulus_info = M.Stimulus_info(1,add_info.stim_idx);
         Stimulus_info = Stimulus_info{:};
         cut_path = strfind(Stimulus_info,'\');
@@ -33,11 +35,18 @@ else
             numel(fieldnames(RF_overview)),[]);
 
         %Check if any RF were found
+        table_heads{1,ii+1} = legend_name{ii}; 
         RF_overview_log(:,ii) = any(RF_overview,1)';
         table_dummy = table(cell_idx',RF_overview_log);
-        add_info.tables.RF_single_cell.Data = table;
+        table_dummy = splitvars(table_dummy);
+        table_dummy.Properties.VariableNames = table_heads;
+        
     end
-
+ plot_zeros = false(length(RF_overview),1);
+ zero_table = table(plot_zeros, 'VariableNames', {'Plot selection'});
+ table_dummy.("Plot selection") = plot_zeros;
+ add_info.tables.RF_single_cell.Data = table_dummy;
 
 end
-
+out = 1;
+end

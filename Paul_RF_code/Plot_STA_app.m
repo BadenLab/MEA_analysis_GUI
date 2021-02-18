@@ -29,6 +29,10 @@ colorMap_arr(:,:,4) = [linspace(0,1,256)', zeros(256,1), linspace(0,1,256)']; % 
 
 First_Bin = 1;
 Last_Bin  = 10;
+
+if Last_Bin > size(RF_Ident_Plot.STA,3)
+    Last_Bin = size(RF_Ident_Plot.STA,3);
+end
 Num_Selected_Bins = Last_Bin-First_Bin+1;
 
 %% Plot

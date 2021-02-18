@@ -48,6 +48,7 @@ end
 table_heads{1,ii+1} = legend_name{ii}; 
 
 end
+table_heads{1,end+1} = 'Plot selection';
 %Plotting
 %dummy array for barplot
 RF_overview_log_plot = ones(size(RF_overview_log,1),size(RF_overview_log,2));
@@ -72,18 +73,25 @@ for i = 1:length(b)
     end
 end
 
-legend(ax1,legend_name,'Location', 'southoutside');
+legend(ax1,flipud(legend_name'),'Location', 'northoutside');
 
 ax1.XLabel.String = "Cell Idx";
 ax1.YTickLabel = [];
 
 %Update single cell overview table
-table_dummy = table(cell_idx',RF_overview_log);
+%Create array of logical zeros so user can tick entries they want to plot
+
+
+
+plot_zeros = false(length(RF_overview_log),1);
+table_dummy = table(cell_idx',RF_overview_log,plot_zeros);
 table_dummy = splitvars(table_dummy);
 table_dummy.Properties.VariableNames = table_heads;
 
 add_info.tables.RF_single_cell.Data = table_dummy;
 add_info.tables.RF_single_cell.ColumnName = table_heads;
+%Make the last column selectable so user can select which cells to plot
+set(add_info.tables.RF_single_cell,'ColumnEditable',[false,false,true]);
 out = 1;
 
 
