@@ -20,7 +20,7 @@ elseif add_info.settings.kernel_new.plot_all.heat_gray
     Heat_Map_Colour_Choice = 1;
 end
 if add_info.settings.kernel_new.plot_all.hist_heat_colour
-    Hist_Colour_Choise = 2;
+    Hist_Colour_Choice = 2;
 elseif add_info.settings.kernel_new.plot_all.hist_heat_gray
     Hist_Colour_Choice = 1;
 end
