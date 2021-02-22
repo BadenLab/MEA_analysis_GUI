@@ -9,7 +9,7 @@ cell_indices = M.cell_indices;
 
 %% Choose whether to use parallel processing and number of cores
 Parpool = add_info.settings.parpro; %Decided in the gui
-Num_Cores = 4; %implement later
+Num_Cores = 3; %implement later
 
 %% Make RF Identification Choices
 
